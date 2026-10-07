@@ -94,36 +94,63 @@ body {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 10px;
+}
+
+/* 顶部导航统一胶囊按钮与状态卡片 */
+.header-pill-btn {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.header-pill-btn svg {
+  color: var(--accent-gold);
+  flex-shrink: 0;
+}
+
+.header-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent-gold);
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 .round-status-box {
+  height: 38px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  padding: 6px 14px;
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
+  padding: 0 14px;
+  border-radius: 8px;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .round-label {
-  font-size: 10px;
-  text-transform: uppercase;
+  font-size: 11px;
   color: var(--text-muted);
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .round-value {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--accent-gold);
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
 }
 
 /* Mock Toggle */
@@ -939,40 +966,43 @@ textarea#player-input:focus {
     gap: 8px;
   }
 
-  .info-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 8px;
-    font-size: 12px;
-  }
-
   .game-badge {
     display: none; /* 移动端空间紧张，隐藏小标签 */
   }
 
   .game-title {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .header-right {
-    gap: 8px;
+    gap: 6px;
+  }
+
+  .header-pill-btn {
+    height: 32px;
+    padding: 0 8px;
+    font-size: 12px;
+    gap: 4px;
+    border-radius: 6px;
+  }
+
+  .header-pill-btn svg {
+    width: 14px;
+    height: 14px;
   }
 
   .round-status-box {
-    padding: 4px 8px;
+    height: 32px;
+    padding: 0 8px;
+    gap: 6px;
+    border-radius: 6px;
   }
 
   .round-label {
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .round-value {
-    font-size: 12px;
-  }
-
-  #restart-btn {
-    padding: 6px 10px;
     font-size: 12px;
   }
 
