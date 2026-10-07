@@ -1,0 +1,25 @@
+[project]
+name = "agent-game-engine"
+version = "0.1.0"
+description = "Configuration-driven Multi-agent Text Game Runtime Engine"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
