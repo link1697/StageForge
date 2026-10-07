@@ -387,6 +387,26 @@ resultRestartBtn.addEventListener("click", () => {
   initGame();
 });
 
+// 移动端档案侧边抽屉交互
+const infoDrawerBtn = document.getElementById("info-drawer-btn");
+const sidebarDrawer = document.getElementById("sidebar-drawer");
+const drawerBackdrop = document.getElementById("drawer-backdrop");
+const closeDrawerBtn = document.getElementById("close-drawer-btn");
+
+function openMobileDrawer() {
+  if (sidebarDrawer) sidebarDrawer.classList.add("open");
+  if (drawerBackdrop) drawerBackdrop.classList.remove("hidden");
+}
+
+function closeMobileDrawer() {
+  if (sidebarDrawer) sidebarDrawer.classList.remove("open");
+  if (drawerBackdrop) drawerBackdrop.classList.add("hidden");
+}
+
+if (infoDrawerBtn) infoDrawerBtn.addEventListener("click", openMobileDrawer);
+if (closeDrawerBtn) closeDrawerBtn.addEventListener("click", closeMobileDrawer);
+if (drawerBackdrop) drawerBackdrop.addEventListener("click", closeMobileDrawer);
+
 // 页面加载自动开启
 window.addEventListener("DOMContentLoaded", () => {
   initGame();

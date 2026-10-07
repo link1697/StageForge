@@ -14,24 +14,41 @@
     <!-- 顶部导航栏 -->
     <header class="app-header">
       <div class="header-left">
+        <button id="info-drawer-btn" class="btn btn-icon info-btn" title="查看案情与嫌疑人" aria-label="查看案情档案">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <span class="info-btn-text">档案</span>
+        </button>
         <span class="game-badge">AGY RUNTIME V2</span>
-        <h1 id="game-title" class="game-title">庄园疑案：审讯室</h1>
+        <h1 id="game-title" class="game-title">庄园疑案</h1>
       </div>
       <div class="header-right">
         <div class="round-status-box">
-          <span class="round-label">当前进度</span>
+          <span class="round-label">进度</span>
           <span class="round-value" id="round-display">第 1 / 7 轮</span>
         </div>
         <div class="header-actions">
-          <button id="restart-btn" class="btn btn-secondary">重新开局</button>
+          <button id="restart-btn" class="btn btn-secondary">重开</button>
         </div>
       </div>
     </header>
 
+    <!-- 侧边栏抽屉遮罩 (移动端) -->
+    <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+
     <!-- 主视口区域 -->
     <main class="main-layout">
-      <!-- 左侧：嫌疑人档案与案情情报栏 -->
-      <aside class="sidebar">
+      <!-- 左侧：嫌疑人档案与案情情报栏 (移动端支持抽屉滑出) -->
+      <aside class="sidebar" id="sidebar-drawer">
+        <div class="drawer-mobile-header">
+          <h3>📜 案情通报与嫌疑人</h3>
+          <button id="close-drawer-btn" class="close-btn">&times;</button>
+        </div>
         <div class="panel dossier-panel">
           <div class="panel-header">
             <h3>📜 案情通报</h3>
