@@ -407,7 +407,27 @@ if (infoDrawerBtn) infoDrawerBtn.addEventListener("click", openMobileDrawer);
 if (closeDrawerBtn) closeDrawerBtn.addEventListener("click", closeMobileDrawer);
 if (drawerBackdrop) drawerBackdrop.addEventListener("click", closeMobileDrawer);
 
-// 页面加载自动开启
+// 探案指南 Modal 交互
+const guideModal = document.getElementById("guide-modal");
+const guideBtn = document.getElementById("guide-btn");
+const closeGuideBtn = document.getElementById("close-guide-btn");
+const startInvestigationBtn = document.getElementById("start-investigation-btn");
+
+function openGuideModal() {
+  if (guideModal) guideModal.classList.remove("hidden");
+}
+
+function closeGuideModal() {
+  if (guideModal) guideModal.classList.add("hidden");
+}
+
+if (guideBtn) guideBtn.addEventListener("click", openGuideModal);
+if (closeGuideBtn) closeGuideBtn.addEventListener("click", closeGuideModal);
+if (startInvestigationBtn) startInvestigationBtn.addEventListener("click", closeGuideModal);
+
+// 页面加载自动开启游戏，并向新玩家展示背景指引
 window.addEventListener("DOMContentLoaded", () => {
   initGame();
+  // 首次打开页面时自动弹出背景与玩法指南
+  openGuideModal();
 });

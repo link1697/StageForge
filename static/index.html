@@ -28,6 +28,14 @@
         <h1 id="game-title" class="game-title">庄园疑案</h1>
       </div>
       <div class="header-right">
+        <button id="guide-btn" class="btn btn-icon guide-btn" title="查看探案指南与玩法" aria-label="查看探案指南">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span class="guide-btn-text">指南</span>
+        </button>
         <div class="round-status-box">
           <span class="round-label">进度</span>
           <span class="round-value" id="round-display">第 1 / 7 轮</span>
@@ -156,6 +164,77 @@
         </div>
         <div class="modal-footer">
           <button id="result-restart-btn" class="btn btn-primary">再来一局</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 探案指引与玩法介绍 Modal (首次进入自动弹出) -->
+    <div id="guide-modal" class="modal-overlay hidden">
+      <div class="modal-card guide-card">
+        <div class="modal-header">
+          <h2>🕵️‍♂️ 侦探入场指南 · 案情速报</h2>
+          <button id="close-guide-btn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body guide-body">
+          <div class="guide-section story-intro">
+            <h4>🌧️ 案情背景</h4>
+            <p>
+              暴风雨之夜，<strong>老伯爵在紧锁的书房内被残忍杀害</strong>，随身携带的金怀表不翼而飞。<br>
+              作为受邀而来的名侦探，你已封锁庄园大门，并将嫌疑最大的两人隔离至审讯室：
+            </p>
+            <div class="guide-suspects-preview">
+              <div class="preview-item">
+                <span class="preview-avatar">🧐</span>
+                <div>
+                  <strong>理查德（老管家）</strong>
+                  <p>服务庄园40年，滴水不漏，声称案发时在佣人房且绝无钥匙。</p>
+                </div>
+              </div>
+              <div class="preview-item">
+                <span class="preview-avatar">🧑‍🌾</span>
+                <div>
+                  <strong>汤姆（年轻园丁）</strong>
+                  <p>脾气暴躁欠有赌债，声称昨夜只是路过，反咬管家怀恨在心。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-section how-to-play">
+            <h4>🎯 游戏玩法与规则</h4>
+            <ul class="guide-rules-list">
+              <li>
+                <span class="step-num">1</span>
+                <div>
+                  <strong>提问质询（回合制推进）</strong>
+                  <p>在底部输入你想质问的问题（如“<em>昨晚10点你在哪？</em>”、“<em>谁有书房钥匙？</em>”），两名嫌疑人会依次回答并互相攻防辩驳。</p>
+                </div>
+              </li>
+              <li>
+                <span class="step-num">2</span>
+                <div>
+                  <strong>审讯轮次与指认真凶</strong>
+                  <p>整场审讯共有 <strong>7 轮</strong> 对话机会。从 <strong>第 4 轮起</strong>，你可以随时点击「⚖️ 指认真凶」结案；若到了第 7 轮则必须进行最终指控！</p>
+                </div>
+              </li>
+              <li>
+                <span class="step-num">3</span>
+                <div>
+                  <strong>明察秋毫，识破真凶</strong>
+                  <p>嫌疑人的言语中可能藏有谎言、隐瞒与互相栽赃。找出破绽，指出真正的杀人凶手即可获得胜利！</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="start-investigation-btn" class="btn btn-primary btn-large">
+            <span>开始审讯，勘破迷案</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
         </div>
       </div>
     </div>

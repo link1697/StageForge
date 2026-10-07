@@ -746,6 +746,138 @@ textarea#player-input:focus {
   color: var(--text-secondary);
 }
 
+/* Guide & Onboarding Modal */
+.guide-btn {
+  background: rgba(226, 177, 105, 0.12);
+  color: var(--accent-gold);
+  border: 1px solid rgba(226, 177, 105, 0.3);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.guide-btn:hover {
+  background: rgba(226, 177, 105, 0.2);
+  border-color: var(--accent-gold);
+}
+
+.guide-card {
+  max-width: 620px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.guide-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 22px 24px;
+}
+
+.guide-section h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.guide-section p {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.guide-suspects-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.preview-item {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  padding: 10px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.preview-avatar {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.preview-item strong {
+  display: block;
+  font-size: 13px;
+  color: #fff;
+  margin-bottom: 3px;
+}
+
+.preview-item p {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.guide-rules-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guide-rules-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  padding: 12px 14px;
+  border-radius: 8px;
+}
+
+.step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(226, 177, 105, 0.15);
+  color: var(--accent-gold);
+  border: 1px solid rgba(226, 177, 105, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.guide-rules-list strong {
+  display: block;
+  font-size: 13px;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.guide-rules-list p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.btn-large {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 /* =========================================================
    移动端与竖屏响应式适配 (Mobile Portrait Responsive)
    ========================================================= */
@@ -984,5 +1116,30 @@ textarea#player-input:focus {
   .accuse-target-btn .target-avatar {
     font-size: 28px;
     margin-bottom: 0;
+  }
+
+  /* 指南弹窗移动端适配 */
+  .guide-card {
+    max-height: 85vh;
+  }
+
+  .guide-body {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .guide-suspects-preview {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .guide-rules-list li {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .btn-large {
+    width: 100%;
+    padding: 10px 16px;
   }
 }
