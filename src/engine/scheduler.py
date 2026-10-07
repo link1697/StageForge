@@ -20,10 +20,15 @@ class TurnScheduler:
         self.max_rounds = max_rounds
         self.current_round = current_round
         self.cursor = cursor
+        self._terminated_early = False
+
+    def terminate(self) -> None:
+        """提前终止调度"""
+        self._terminated_early = True
 
     def is_terminated(self) -> bool:
-        """当当前轮数超出最大轮数时判定为结束"""
-        return self.current_round > self.max_rounds
+        """当被提前终止或当前轮数超出最大轮数时判定为结束"""
+        return self._terminated_early or (self.current_round > self.max_rounds)
 
     def get_current_speaker(self) -> Optional[str]:
         """获取当前发言者 ID；若已终止则返回 None"""

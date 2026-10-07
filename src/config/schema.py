@@ -19,6 +19,9 @@ class GameConfig(BaseModel):
         description="按顺序发言的 ID 列表。保留关键字 'player' 代表终端用户"
     )
     agents: List[AgentConfig] = Field(..., description="所有参与的 AI 角色配置")
+    min_accuse_round: int = Field(default=4, ge=1, description="最早允许指认凶手的轮次")
+    culprit_id: Optional[str] = Field(None, description="真凶的角色ID")
+    truth_revealed: Optional[str] = Field(None, description="真凶案情揭秘与真相说明")
 
     @model_validator(mode="after")
     def validate_turn_order_and_agents(self) -> "GameConfig":
@@ -35,6 +38,14 @@ class GameConfig(BaseModel):
                 raise ValueError(
                     f"turn_order 中的角色 '{speaker_id}' 未在 agents 列表中定义"
                 )
+
+        if self.culprit_id and self.culprit_id not in agent_id_set:
+            raise ValueError(f"culprit_id '{self.culprit_id}' 未在 agents 列表中定义")
+
+        if self.min_accuse_round > self.max_rounds:
+            raise ValueError(
+                f"min_accuse_round ({self.min_accuse_round}) 不能大于 max_rounds ({self.max_rounds})"
+            )
 
         return self
 
