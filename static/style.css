@@ -966,6 +966,10 @@ textarea#player-input:focus {
     gap: 8px;
   }
 
+  .info-btn {
+    display: inline-flex !important;
+  }
+
   .game-badge {
     display: none; /* 移动端空间紧张，隐藏小标签 */
   }
