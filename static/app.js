@@ -48,15 +48,29 @@ function getSpeakerLabel(msg) {
   return msg.sender_name || msg.sender_id;
 }
 
+// 通用健壮请求封装（针对隧道代理网络波动自动重试 2 次）
+async function fetchWithRetry(url, options = {}, retries = 2, backoff = 800) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      return res;
+    } catch (err) {
+      if (i === retries) throw err;
+      console.warn(`[网络波动] 请求 ${url} 失败，正在重试第 ${i + 1} 次...`, err);
+      await new Promise((r) => setTimeout(r, backoff * (i + 1)));
+    }
+  }
+}
+
 // 初始化/开局
 async function initGame() {
   setLoading(true);
   try {
-    const res = await fetch("/api/game/start", {
+    const res = await fetchWithRetry("/api/game/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        mock_mode: mockToggle.checked,
+        mock_mode: false,
       }),
     });
     const data = await res.json();
@@ -241,7 +255,7 @@ async function handleSend() {
   showThinkingIndicator("嫌疑人");
 
   try {
-    const res = await fetch("/api/game/speak", {
+    const res = await fetchWithRetry("/api/game/speak", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),
@@ -304,7 +318,7 @@ async function submitAccusation(agentId) {
   setLoading(true);
 
   try {
-    const res = await fetch("/api/game/accuse", {
+    const res = await fetchWithRetry("/api/game/accuse", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ agent_id: agentId }),
@@ -358,6 +372,12 @@ cancelAccuseBtn.addEventListener("click", closeAccuseModal);
 
 restartBtn.addEventListener("click", () => {
   if (confirm("确定重新开始本案审讯吗？当前进度将被重置。")) {
+    // Hide any result modal that may be visible
+    const resultModal = document.getElementById("result-modal");
+    if (resultModal) {
+      resultModal.classList.add("hidden");
+    }
+    // Reinitialize the game state
     initGame();
   }
 });
@@ -365,10 +385,6 @@ restartBtn.addEventListener("click", () => {
 resultRestartBtn.addEventListener("click", () => {
   resultModal.classList.add("hidden");
   initGame();
-});
-
-mockToggle.addEventListener("change", () => {
-  console.log("Mock toggle changed:", mockToggle.checked);
 });
 
 // 页面加载自动开启

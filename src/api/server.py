@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
@@ -11,6 +12,15 @@ from src.llm.client import LLMClient, LLMClientError
 from src.engine.session import GameSession
 
 app = FastAPI(title="Agentic Game Engine Web UI")
+
+# 启用 CORS 跨域支持，防止隧道/外部域名请求 API 时被拦截
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 当前全局游戏会话（支持单机对局；若无则自动在首次启动时创建）
 current_session: Optional[GameSession] = None
