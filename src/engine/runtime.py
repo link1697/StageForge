@@ -35,7 +35,7 @@ class GameRuntime:
         print(f"【对局设置】: 共 {self.config.max_rounds} 轮，发言顺序: {' -> '.join(self.config.turn_order)}")
         print("【出场角色】:")
         for agent in self.config.agents:
-            print(f"  • {agent.name} (ID: {agent.id}, 身份: {agent.role})")
+            print(f"  • {agent.name} (ID: {agent.id})")
         print("=" * 60 + "\n")
 
     def _print_epilogue(self) -> None:
