@@ -38,11 +38,39 @@ def parse_args():
         default=10,
         help="记忆缓冲区的滑动窗口大小 (默认: 10)",
     )
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="启动 Web 互动前端服务器 (默认运行在 http://127.0.0.1:8000)",
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Web 服务监听主机 (默认: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Web 服务监听端口 (默认: 8000)",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
+
+    # 如果指定了 --web，启动 FastAPI Web 交互服务
+    if args.web:
+        import uvicorn
+        from src.api.server import app
+        print(f"\n=======================================================")
+        print(f" 🌐 正在启动游戏交互前端界面...")
+        print(f" 🔗 请用浏览器打开: http://{args.host}:{args.port}")
+        print(f"=======================================================\n")
+        uvicorn.run(app, host=args.host, port=args.port)
+        return
 
     # 1. 加载配置
     config_file = Path(args.config)

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>庄园疑案：审讯室 · 探案推理引擎</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 顶部导航栏 -->
+    <header class="app-header">
+      <div class="header-left">
+        <span class="game-badge">AGY RUNTIME V2</span>
+        <h1 id="game-title" class="game-title">庄园疑案：审讯室</h1>
+      </div>
+      <div class="header-right">
+        <div class="round-status-box">
+          <span class="round-label">当前进度</span>
+          <span class="round-value" id="round-display">第 1 / 7 轮</span>
+        </div>
+        <div class="header-actions">
+          <label class="toggle-control" title="切换本地智能 Mock，不消耗大模型 API Key 额度">
+            <input type="checkbox" id="mock-toggle" checked>
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">智能 Mock 模式</span>
+          </label>
+          <button id="restart-btn" class="btn btn-secondary">重新开局</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 主视口区域 -->
+    <main class="main-layout">
+      <!-- 左侧：嫌疑人档案与案情情报栏 -->
+      <aside class="sidebar">
+        <div class="panel dossier-panel">
+          <div class="panel-header">
+            <h3>📜 案情通报</h3>
+          </div>
+          <div class="dossier-content">
+            <p id="game-description" class="lead-text">老伯爵在书房被杀，怀表丢失。你在暴风雨夜将嫌疑最大的管家与园丁集中审讯。</p>
+            <div class="rules-card">
+              <h4>⚖️ 审讯与结案规则</h4>
+              <ul>
+                <li>最多进行 <strong>7 轮</strong> 对话审讯。</li>
+                <li>从 <strong>第 4 轮</strong> 起即可随时开启「指认真凶」结案。</li>
+                <li>到达第 7 轮后必须立即强制指控，指认正确获胜，否则冤案失败！</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel suspects-panel">
+          <div class="panel-header">
+            <h3>👥 嫌疑人名录</h3>
+            <span class="badge-count" id="suspects-count">2 位嫌疑人</span>
+          </div>
+          <div class="suspects-list" id="suspects-list">
+            <!-- 动态注入嫌疑人卡片 -->
+          </div>
+        </div>
+      </aside>
+
+      <!-- 中间：审讯笔录对话流与交互面板 -->
+      <section class="inquest-area">
+        <div class="panel chat-panel">
+          <div class="panel-header chat-header">
+            <div class="chat-header-title">
+              <span class="live-dot"></span>
+              <h3>庄园审讯笔录 (Transcript)</h3>
+            </div>
+            <div id="speaker-indicator" class="speaker-indicator">
+              等待侦探发言...
+            </div>
+          </div>
+
+          <div class="chat-messages" id="chat-messages">
+            <!-- 动态注入对话气泡 -->
+          </div>
+
+          <!-- 底部输入框与操作栏 -->
+          <div class="chat-input-bar">
+            <div class="input-wrapper">
+              <textarea 
+                id="player-input" 
+                rows="2" 
+                placeholder="作为侦探，输入你想问话或质证的问题...（Enter 发送，Shift+Enter 换行）"
+              ></textarea>
+              <div class="input-actions">
+                <button id="accuse-btn" class="btn btn-warning" title="指认真正凶手">
+                  ⚖️ 指认真凶
+                </button>
+                <button id="send-btn" class="btn btn-primary">
+                  <span>提问质询</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 指认真凶弹窗 Modal -->
+    <div id="accuse-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>⚖️ 指认真凶 · 最终裁决</h2>
+          <button id="close-modal-btn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-warning">
+            ⚠️ 证据确凿了吗？指认将立即锁定凶手并结案。若指控错误将酿成冤案！
+          </p>
+          <div class="accuse-suspects-grid" id="accuse-suspects-grid">
+            <!-- 动态生成可指认对象按钮 -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancel-accuse-btn" class="btn btn-secondary">取消，继续审问</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 游戏结案复盘 Modal -->
+    <div id="result-modal" class="modal-overlay hidden">
+      <div class="modal-card result-card">
+        <div class="result-banner" id="result-banner">
+          <h2 id="result-title">真相大白！</h2>
+          <p id="result-subtitle">侦探成功破案</p>
+        </div>
+        <div class="modal-body">
+          <div class="truth-card">
+            <h4>📖 案情完整真相揭秘</h4>
+            <p id="truth-content"></p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="result-restart-btn" class="btn btn-primary">再来一局</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
