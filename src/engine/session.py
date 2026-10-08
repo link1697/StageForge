@@ -61,12 +61,34 @@ class GameSession:
         self.result: Optional[str] = None
         self.chosen_culprit_id: Optional[str] = None
 
+        # 动态物证状态跟踪 (locked -> available_for_search -> discovered)
+        self.clues_state: Dict[str, Dict[str, Any]] = {}
+        for c in (getattr(config, "clues", []) or []):
+            cid = c.get("id")
+            if cid:
+                self.clues_state[cid] = {
+                    "id": cid,
+                    "name": c.get("name", ""),
+                    "location": c.get("location", ""),
+                    "detail": c.get("detail", ""),
+                    "status": c.get("status", "locked"),
+                    "action_prompt": c.get("action_prompt", f"搜查并检验 {c.get('name')}"),
+                    "unlock_condition": c.get("unlock_condition", {}),
+                    "discovered_at_round": None,
+                }
+
         # 初始化双路 RAG 知识检索系统 (Chroma + BM25)
         self.rag = HybridRAGEngine(collection_name=f"lore_{abs(hash(config.name)) % 10000}")
         self._index_world_knowledge()
 
+        # 初始化基于行业标准 Model Context Protocol (MCP) 的环境服务器与客户端
+        from src.mcp_server.server import create_game_mcp_server
+        from src.mcp_server.client import GameMCPClient
+        self.mcp_server = create_game_mcp_server(config=self.config, session_ref=self)
+        self.mcp_client = GameMCPClient(mcp_server=self.mcp_server)
+
     def _index_world_knowledge(self) -> None:
-        """预热并索引世界设定集（World Lore）与物证库（Clues）"""
+        """预热并索引世界设定集（World Lore）与已公开物证"""
         docs = []
         # 1. 索引剧本世界设定
         if hasattr(self.config, "world_lore") and self.config.world_lore:
@@ -76,17 +98,59 @@ class GameSession:
                     "content": item,
                     "metadata": {"type": "world_lore", "index": idx},
                 })
-        # 2. 索引案情线索数据库
-        if hasattr(self.config, "clues") and self.config.clues:
-            for idx, clue in enumerate(self.config.clues):
-                clue_text = f"【物证档案】{clue.get('name', '')}：{clue.get('detail', '')} 发现地点：{clue.get('location', '未知')}"
+        # 2. 仅索引已经公开（discovered）的案情线索，严防未发现证据全局泄露
+        for cid, clue in self.clues_state.items():
+            if clue.get("status") == "discovered":
+                clue_text = f"【已确凿物证档案】{clue.get('name', '')}：{clue.get('detail', '')} 发现地点：{clue.get('location', '未知')}"
                 docs.append({
-                    "id": f"clue_{clue.get('id', idx)}",
+                    "id": f"clue_{cid}",
                     "content": clue_text,
                     "metadata": {"type": "clue", "name": clue.get("name", "")},
                 })
         if docs:
             self.rag.add_documents(docs)
+
+    def check_clue_triggers(self, speaker_id: str, content: str) -> List[str]:
+        """检查当轮发言是否触发隐蔽物证的搜查权限解锁"""
+        unlocked_ids = []
+        lower_content = content.lower()
+        for cid, clue in self.clues_state.items():
+            if clue.get("status") != "locked":
+                continue
+
+            cond = clue.get("unlock_condition") or {}
+            min_round = cond.get("min_round", 1)
+            if self.scheduler.current_round < min_round:
+                continue
+
+            trigger_spk = cond.get("trigger_speaker", "any")
+            if trigger_spk != "any" and trigger_spk != speaker_id:
+                continue
+
+            keywords = cond.get("keywords", [])
+            if any(kw.lower() in lower_content for kw in keywords):
+                clue["status"] = "available_for_search"
+                unlocked_ids.append(cid)
+        return unlocked_ids
+
+    def search_clue(self, clue_id: str) -> Optional[Dict[str, Any]]:
+        """侦探执行搜查指令，将物证正式起获为确凿证据 (discovered) 并同步注入 RAG 与公屏"""
+        clue = self.clues_state.get(clue_id)
+        if not clue:
+            return None
+
+        clue["status"] = "discovered"
+        clue["discovered_at_round"] = self.scheduler.current_round
+
+        # 动态将刚起获的物证写入双路 RAG，全场所有人后续将不可抵赖此项证据
+        clue_text = f"【已确凿物证档案】{clue.get('name', '')}：{clue.get('detail', '')} 发现地点：{clue.get('location', '未知')}"
+        self.rag.add_documents([{
+            "id": f"clue_{clue_id}",
+            "content": clue_text,
+            "metadata": {"type": "clue", "name": clue.get("name", "")},
+        }])
+        return clue
+
 
     def get_state(self) -> Dict[str, Any]:
         """获取当前游戏状态摘要"""
@@ -151,6 +215,18 @@ class GameSession:
                 for a in self.config.agents
             ],
             "turn_order": self.config.turn_order,
+            "clues": [
+                {
+                    "id": c["id"],
+                    "name": c["name"] if c["status"] == "discovered" else "未知线索",
+                    "location": c["location"] if c["status"] == "discovered" else "未知位置",
+                    "detail": c["detail"] if c["status"] == "discovered" else "",
+                    "status": c["status"],
+                    "action_prompt": c.get("action_prompt", "") if c["status"] == "available_for_search" else "",
+                    "discovered_at_round": c.get("discovered_at_round"),
+                }
+                for c in self.clues_state.values()
+            ],
             "messages": [
                 {
                     "sender_id": m.sender_id,
@@ -163,6 +239,7 @@ class GameSession:
             ],
         }
 
+
     def update_language(self, new_lang: str) -> None:
         """热切换游戏运行语言，保留已有回合与记忆，动态更新角色设定与配置"""
         norm_lang = "en" if new_lang.lower().startswith("en") else "zh"
@@ -172,6 +249,13 @@ class GameSession:
         from src.config.translator import translate_game_config
         # 翻译或还原配置，保持当前进度
         self.config = translate_game_config(self.config, target_lang=norm_lang, llm_client=self.llm_client)
+
+        # 同步更新 MCP 服务端的语言数据源
+        from src.mcp_server.server import create_game_mcp_server
+        from src.mcp_server.client import GameMCPClient
+        self.mcp_server = create_game_mcp_server(config=self.config, session_ref=self)
+        self.mcp_client = GameMCPClient(mcp_server=self.mcp_server)
+
 
 
     def player_speak(self, text: str) -> List[TurnResult]:
@@ -240,21 +324,58 @@ class GameSession:
                     + "\n".join(lore_snippets)
                 )
 
-            # 2. 组装增强提示词（包含基础人设 + RAG 知识增强 + 语言约束）
+            # 2. 组装增强提示词（包含基础人设 + RAG 知识增强 + MCP 环境工具定义 + 语言约束）
+            lang = getattr(self.config, "lang", "zh")
             lang_instruction = ""
-            if getattr(self.config, "lang", "zh") == "en":
+            if lang == "en":
                 lang_instruction = (
                     "\n\n【Language Requirement】: You MUST speak and respond strictly in English! "
                     "All your dialogue, reactions, and inner defenses MUST be in English only."
                 )
 
-            augmented_system_prompt = agent.system_prompt + lore_prompt_addon + lang_instruction
+            # MCP 协议环境描述（声明 Agent 可交互的 MCP 资产标准）
+            mcp_instruction = (
+                "\n\n【Model Context Protocol (MCP) Environment】:\n"
+                "This scenario is backed by an active MCP Server exposing case tools (`inspect_clue`, `query_manor_lore`, `check_alibi_timeline`). "
+                "Base your statements strictly on factual evidence and verified alibis in the manor."
+            ) if lang == "en" else (
+                "\n\n【Model Context Protocol (MCP) 环境规范】:\n"
+                "本案已接入标准 MCP 服务端，提供环境物证与线索工具（`inspect_clue`, `query_manor_lore`, `check_alibi_timeline`）。"
+                "你的发言与辩解必须严格符合真实的物证检验结果与时间线事实，不得捏造不存在的证据。"
+            )
 
-            # 3. 构造滑动窗口上下文
+            # 引擎级多智能体对话对齐底座协议（严格防止任何角色脱离历史对话产生幻觉或凭空树靶）
+            grounding_protocol = (
+                f"\n\n【审讯对齐与现实锚定协议（引擎级强制守则）】:\n"
+                f"1. 当前进度：第 {round_num} 轮审讯（共 {self.config.max_rounds} 轮）。\n"
+                f"2. 【严禁凭空树靶与虚构指控】：你所处的场景是现场审讯室。仔细阅读上方对话记录——"
+                f"你【只能且必须】针对侦探和同案角色【真实说过的话】做出反应！"
+                f"如果对方在上方历史记录中从未提及某件事（例如从未指控你“游荡”、“偷窃”或“杀人”），你【绝对不能】跳出来声称对方说过或在污蔑你，否则视为严重逻辑幻觉与违规！\n"
+                f"3. 紧扣侦探本轮的最新提问进行作答与周旋，展现符合你身份的真实心理活动与应激反应。"
+            ) if lang != "en" else (
+                f"\n\n【Engine Dialogue Grounding Protocol (Strict Rule)】:\n"
+                f"1. Current Progress: Round {round_num} of {self.config.max_rounds}.\n"
+                f"2. 【Zero Hallucination / No Ghost Arguments】: Closely examine the dialogue history above. "
+                f"You MUST ONLY react to what the detective and suspects ACTUALLY stated. "
+                f"If an opponent has NOT yet made a specific accusation against you in the transcript above, "
+                f"you MUST NEVER claim that they accused or slandered you! Reacting to unsaid words is strictly prohibited.\n"
+                f"3. Address the detective's latest question directly within your character role."
+            )
+
+            augmented_system_prompt = (
+                agent.system_prompt
+                + grounding_protocol
+                + lore_prompt_addon
+                + mcp_instruction
+                + lang_instruction
+            )
+
+            # 3. 构造滑动窗口上下文（启用显式轮次分界标，隔离跨轮次时间线倒错）
             context = self.memory.get_context_for_agent(
                 agent_id=agent.id,
                 system_prompt=augmented_system_prompt,
                 window_size=self.window_size,
+                include_round_headers=True,
             )
 
             # 4. 执行大模型生成
@@ -273,6 +394,9 @@ class GameSession:
                 )
             )
 
+            # 5. 实时检测当前角色发言是否透露破绽，从而解锁新的物证搜查权限
+            unlocked_clues = self.check_clue_triggers(speaker_id=agent.id, content=reply)
+
             results.append(
                 TurnResult(
                     speaker_id=agent.id,
@@ -282,6 +406,22 @@ class GameSession:
                     is_player=False,
                 )
             )
+
+            # 如果触发解锁了新的物证，向记忆中广播系统线索提示，让现场气氛进一步升级
+            for ucid in unlocked_clues:
+                clue_item = self.clues_state.get(ucid)
+                if clue_item:
+                    notice_text = f"【侦探直觉 / 破绽捕捉】根据 {agent.name} 的证言，已解锁可搜查验证疑点：{clue_item.get('action_prompt')}"
+                    self.memory.append(
+                        Message(
+                            sender_id="system",
+                            sender_name="案情系统",
+                            content=notice_text,
+                            role="system",
+                            round_idx=round_num,
+                        )
+                    )
+
 
             self.scheduler.advance()
 

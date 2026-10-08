@@ -10,6 +10,7 @@ const state = {
   lang: localStorage.getItem("stageforge_lang") || "zh",
   theme: localStorage.getItem("stageforge_theme") || "dark",
   rawState: null,
+  dismissedClueIds: new Set(),
 };
 
 // 获取翻译文案（由 strings.js 集中管理）
@@ -130,6 +131,7 @@ async function initGame() {
     });
     const data = await res.json();
     if (data.status === "success") {
+      state.dismissedClueIds.clear();
       renderFullState(data.state);
     } else {
       alert("启动游戏失败: " + (data.detail || "未知错误"));
@@ -213,11 +215,19 @@ function renderFullState(gameState) {
       const item = document.createElement("div");
       item.className = "preview-item";
       const descText = agent.description || agent.role || "";
+      // 提取并清理 role 中的 (Suspect) / （嫌疑人）等冗余标注
+      const cleanRole = (agent.role || "")
+        .replace(/\s*[\(（](?:Suspect|嫌疑人)[\)）]/gi, "")
+        .replace(/^\((.*)\)$/, "$1")
+        .trim();
       item.innerHTML = `
         <span class="preview-avatar">${agent.avatar || getAvatar(agent.id)}</span>
-        <div>
-          <strong>${agent.name} (${agent.role})</strong>
-          <p>${escapeHTML(descText)}</p>
+        <div class="preview-info">
+          <div class="preview-header-line">
+            <strong class="preview-name">${escapeHTML(agent.name)}</strong>
+            <span class="preview-role-badge">${escapeHTML(cleanRole)}</span>
+          </div>
+          <p class="preview-desc">${escapeHTML(descText)}</p>
         </div>
       `;
       guidePreview.appendChild(item);
@@ -236,15 +246,22 @@ function renderFullState(gameState) {
   state.agents.forEach((agent) => {
     const card = document.createElement("div");
     card.className = "suspect-card";
+    // 侧边栏本身已是「嫌疑人名录 / Suspect List」，卡片中角色身份无需再重复后缀 (Suspect) 或（嫌疑人）
+    const cleanRole = (agent.role || "")
+      .replace(/\s*[\(（](?:Suspect|嫌疑人)[\)）]/gi, "")
+      .trim();
     card.innerHTML = `
       <div class="suspect-avatar">${agent.avatar || getAvatar(agent.id)}</div>
       <div class="suspect-info">
         <div class="suspect-name">${agent.name}</div>
-        <div class="suspect-role">${agent.role}</div>
+        <div class="suspect-role">${cleanRole}</div>
       </div>
     `;
     suspectsList.appendChild(card);
   });
+
+  // 5.2 渲染案件物证库列表与可搜查疑点操作栏
+  renderCluesAndActions(gameState.clues || []);
 
   // 6. 对话笔录消息流
   chatMessages.innerHTML = "";
@@ -272,18 +289,136 @@ function renderFullState(gameState) {
   // 7. 指认真凶按钮控制
   updateAccuseButton();
 
-  // 8. 检查是否结算
+  // 8. 检查是否结算或强制指控
   if (gameState.status === "victory" || gameState.status === "defeat") {
-    showResultModal(
-      gameState.status,
-      gameState.truth_revealed || "案情已揭晓",
-      gameState.chosen_name || "",
-      gameState.real_culprit_name || "真凶"
-    );
+    // 延迟 600ms 弹出结算，让玩家先看清最后一轮发言
+    setTimeout(() => {
+      showResultModal(
+        gameState.status,
+        gameState.truth_revealed || "案情已揭晓",
+        gameState.chosen_name || "",
+        gameState.real_culprit_name || "真凶"
+      );
+    }, 600);
   } else if (gameState.status === "mandatory_accuse") {
-    openAccuseModal(true);
+    // 到达最终轮次：先延迟 1500ms 让玩家阅读完当前轮所有嫌疑人的最终辩解，再弹出指控弹窗
+    setTimeout(() => {
+      openAccuseModal(true);
+    }, 1500);
   }
 }
+
+// 渲染物证卡片与待验证破绽按钮
+function renderCluesAndActions(clues) {
+  const cluesList = document.getElementById("clues-list");
+  const cluesCount = document.getElementById("clues-count");
+  const cluesActionBar = document.getElementById("clues-action-bar");
+  const cluesActionButtons = document.getElementById("clues-action-buttons");
+
+  if (!cluesList) return;
+
+  const discoveredClues = clues.filter((c) => c.status === "discovered");
+  const availableClues = clues.filter((c) => c.status === "available_for_search");
+
+  if (cluesCount) {
+    cluesCount.textContent = state.lang === "en" 
+      ? `${discoveredClues.length} Discovered` 
+      : `${discoveredClues.length} 项已起获`;
+  }
+
+  // 渲染侧边栏物证库：只有真正搜查起获的物证才呈现在物证库中，未起获前不泄漏名字和藏匿地点
+  cluesList.innerHTML = "";
+  if (discoveredClues.length === 0) {
+    cluesList.innerHTML = `
+      <div style="font-size: 13px; color: var(--text-muted); padding: 18px 12px; text-align: center; border: 1px dashed var(--border-color); border-radius: 8px; margin: 4px 0;">
+        <span style="font-size: 18px; display: block; margin-bottom: 4px;">📂</span>
+        ${t("clues_empty_title")}<br>
+        <span style="font-size: 11px; opacity: 0.8;">${t("clues_empty_hint")}</span>
+      </div>
+    `;
+  } else {
+    discoveredClues.forEach((clue) => {
+      const card = document.createElement("div");
+      card.className = "clue-card discovered";
+      card.innerHTML = `
+        <div class="clue-card-header">
+          <span class="clue-card-title">🔍 ${escapeHTML(clue.name)}</span>
+          <span class="clue-badge discovered">${t("clues_status_verified")}</span>
+        </div>
+        <div class="clue-card-loc">${t("clues_location_prefix")}${escapeHTML(clue.location)}</div>
+        <div class="clue-card-detail">${escapeHTML(clue.detail)}</div>
+      `;
+      cluesList.appendChild(card);
+    });
+  }
+
+  // 渲染对话区上方的待验证破绽操作栏（平时完全隐藏，仅当有新破绽被言语触发时弹出）
+  const cluesActionTitle = document.getElementById("clues-action-title");
+  if (cluesActionTitle) {
+    cluesActionTitle.textContent = t("clues_action_title");
+  }
+
+  if (cluesActionBar && cluesActionButtons) {
+    // 过滤出用户未点击「暂时不查验」的待搜查线索
+    const pendingClues = availableClues.filter(
+      (ac) => !state.dismissedClueIds.has(ac.id)
+    );
+
+    if (pendingClues.length > 0) {
+      cluesActionButtons.innerHTML = "";
+      pendingClues.forEach((ac) => {
+        const btn = document.createElement("button");
+        btn.className = "clue-search-btn";
+        btn.innerHTML = `<span>${t("clues_search_btn_prefix")}${escapeHTML(ac.action_prompt)}</span>`;
+        btn.onclick = () => executeSearchClue(ac.id, ac.name);
+        cluesActionButtons.appendChild(btn);
+      });
+
+      // 添加「暂时不查验 / Dismiss」按钮：点击后收起破绽条
+      const dismissBtn = document.createElement("button");
+      dismissBtn.className = "clue-dismiss-btn";
+      dismissBtn.textContent = t("clues_dismiss_btn");
+      dismissBtn.onclick = () => {
+        pendingClues.forEach((ac) => state.dismissedClueIds.add(ac.id));
+        cluesActionBar.classList.add("hidden");
+      };
+      cluesActionButtons.appendChild(dismissBtn);
+
+      cluesActionBar.classList.remove("hidden");
+    } else {
+      cluesActionBar.classList.add("hidden");
+    }
+  }
+}
+
+// 侦探执行物证搜查指令
+async function executeSearchClue(clueId, clueName) {
+  setLoading(true);
+  try {
+    const res = await fetchWithRetry("/api/game/clue/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clue_id: clueId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert("搜查失败: " + (data.detail || "服务端异常"));
+      return;
+    }
+    if (data.status === "success") {
+      renderFullState(data.state);
+      // 成功提示
+      alert(`【搜查大捷】已在指定地点起获关键铁证：${clueName}！\n证据档案已记入卷宗，嫌疑人将无法再推诿此项事实！`);
+    }
+  } catch (err) {
+    console.error("Search clue error:", err);
+    alert("搜查请求异常: " + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+
 
 // 渲染分轮分隔符
 function renderRoundSeparator(roundNum) {
@@ -429,15 +564,18 @@ function openAccuseModal(isMandatory = false) {
   });
 
   if (isMandatory) {
-    cancelAccuseBtn.style.display = "none";
-    closeModalBtn.style.display = "none";
+    cancelAccuseBtn.style.display = "block";
+    cancelAccuseBtn.textContent = state.lang === "en" ? "Review Transcript First" : "先查看审讯笔录";
+    closeModalBtn.style.display = "block";
   } else {
     cancelAccuseBtn.style.display = "block";
+    cancelAccuseBtn.textContent = t("btn_cancel_accuse");
     closeModalBtn.style.display = "block";
   }
 
   accuseModal.classList.remove("hidden");
 }
+
 
 function closeAccuseModal() {
   accuseModal.classList.add("hidden");

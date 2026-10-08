@@ -52,6 +52,11 @@ class SetLanguageRequest(BaseModel):
     lang: str
 
 
+class SearchClueRequest(BaseModel):
+    clue_id: str
+
+
+
 from src.config.strings import (
     get_text,
     MSG_GAME_STARTED,
@@ -144,9 +149,58 @@ async def set_language(req: SetLanguageRequest):
     }
 
 
+@app.get("/api/mcp/tools")
+async def get_mcp_tools():
+    """获取当前游戏场景中 MCP Server 暴露的工具列表与规范 (MCP 2.x)"""
+    global current_session
+    if not current_session or not hasattr(current_session, "mcp_client"):
+        return {"tools": []}
+    tools = await current_session.mcp_client.list_tools()
+    return {"tools": tools}
+
+
+class MCPCallRequest(BaseModel):
+    tool_name: str
+    arguments: Dict[str, Any] = {}
+
+
+@app.post("/api/mcp/call")
+async def call_mcp_tool(req: MCPCallRequest):
+    """直接调用 MCP Server 工具获取环境与物证情报"""
+    global current_session
+    if not current_session or not hasattr(current_session, "mcp_client"):
+        raise HTTPException(status_code=400, detail="MCP Server not initialized")
+    result = await current_session.mcp_client.call_tool(req.tool_name, req.arguments)
+    return {
+        "status": "success",
+        "tool": req.tool_name,
+        "result": result,
+    }
+
+
+@app.post("/api/game/clue/search")
+async def search_clue(req: SearchClueRequest):
+    """侦探发起搜查验证，起获确凿物证"""
+    global current_session
+    curr_lang = _get_lang()
+    if not current_session:
+        raise HTTPException(status_code=400, detail=get_text(ERROR_GAME_NOT_INIT, lang=curr_lang))
+
+    clue = current_session.search_clue(req.clue_id)
+    if not clue:
+        raise HTTPException(status_code=404, detail="未找到指定线索或无法执行搜查")
+
+    return {
+        "status": "success",
+        "clue": clue,
+        "state": current_session.get_state(),
+    }
+
+
 
 @app.post("/api/game/speak")
 async def speak(req: SpeakRequest):
+
     global current_session
     curr_lang = _get_lang()
     if not current_session:

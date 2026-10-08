@@ -27,7 +27,7 @@ OFFLINE_TRANSLATIONS: Dict[str, Dict[str, Dict[str, str]]] = {
             "agents": {
                 "agent_butler": {
                     "name": "Richard",
-                    "role": "Head Butler (Suspect)",
+                    "role": "Head Butler",
                     "description": "Served the manor for 40 years. Impeccable and composed, claims he was in the servants' quarters and had no key.",
                     "system_prompt": (
                         "You are the butler Richard, having served the manor for 40 years, but you are the true murderer of the Earl! "
@@ -38,12 +38,32 @@ OFFLINE_TRANSLATIONS: Dict[str, Dict[str, Dict[str, str]]] = {
                 },
                 "agent_gardener": {
                     "name": "Tom",
-                    "role": "Gardener (Suspect)",
+                    "role": "Head Gardener",
                     "description": "Hot-tempered and indebted with gambling debts, claims he was only passing by and accuses the butler.",
                     "system_prompt": (
                         "You are Tom the gardener. You owe gambling debts and sneaked into the study last night to steal the golden pocket watch, but the Earl was already dead in a pool of blood when you got in! You did NOT kill him! "
                         "【Guidelines】: 1. You MUST answer the detective's questions in fluent English! Address what the detective asked directly and do NOT introduce unrelated facts abruptly. 2. Control length within 120 words. 3. Be hot-tempered, fiercely deny murder, and accuse the butler."
                     ),
+                },
+            },
+            "clues": {
+                "pocket_watch": {
+                    "name": "Stolen Gold Pocket Watch",
+                    "location": "Inside Gardener Tom's work overalls secret pocket",
+                    "detail": "Family crest of the Earl engraved on the lid, stained with garden mud, stopped at 11:45 PM last night.",
+                    "action_prompt": "Search gardener's overalls secret pocket to check for the gold watch",
+                },
+                "black_cloth_bag": {
+                    "name": "Black Cloth Bag & Secret Ledger",
+                    "location": "Secret compartment in wooden box under Butler's bed",
+                    "detail": "Authentic records of inflated manor repair costs over 3 years, and washed white gloves with blood traces.",
+                    "action_prompt": "Search wooden box under Butler's bed to find the authentic ledger",
+                },
+                "brass_candlestick": {
+                    "name": "Bloodstained Brass Candlestick",
+                    "location": "Deep beneath ashes in the study fireplace",
+                    "detail": "Weighs 2.4kg, base indentation contains dark blood traces and textile fragments.",
+                    "action_prompt": "Inspect the study fireplace ashes to find the murder weapon",
                 },
             },
         },
@@ -128,6 +148,16 @@ def translate_game_config(
             }
             for a in config.agents
         ],
+        "clues": [
+            {
+                "id": c.get("id"),
+                "name": c.get("name", ""),
+                "location": c.get("location", ""),
+                "detail": c.get("detail", ""),
+                "action_prompt": c.get("action_prompt", ""),
+            }
+            for c in (getattr(config, "clues", []) or [])
+        ],
     }
 
     translated_data = None
@@ -138,7 +168,7 @@ def translate_game_config(
             prompt = (
                 "You are an expert game localization translator. "
                 "Translate the following murder mystery game configuration JSON into English. "
-                "Keep the JSON structure, keys, and agent IDs unchanged. Translate only the values. "
+                "Keep the JSON structure, keys, and agent/clue IDs unchanged. Translate only the values. "
                 "Output ONLY a valid JSON object without markdown formatting or code blocks:\n\n"
                 f"{json.dumps(source_payload, ensure_ascii=False, indent=2)}"
             )
@@ -193,6 +223,24 @@ def translate_game_config(
                 if info.get("system_prompt"):
                     agent.system_prompt = info["system_prompt"]
 
+        # Clues
+        clue_trans_map = {
+            c["id"]: c for c in translated_data.get("clues", []) if isinstance(c, dict) and "id" in c
+        }
+        if hasattr(translated, "clues") and translated.clues:
+            for clue in translated.clues:
+                cid = clue.get("id")
+                if cid in clue_trans_map:
+                    c_info = clue_trans_map[cid]
+                    if c_info.get("name"):
+                        clue["name"] = c_info["name"]
+                    if c_info.get("location"):
+                        clue["location"] = c_info["location"]
+                    if c_info.get("detail"):
+                        clue["detail"] = c_info["detail"]
+                    if c_info.get("action_prompt"):
+                        clue["action_prompt"] = c_info["action_prompt"]
+
     translated.lang = target_lang
     # Register translated story strings into strings registry under target_lang
     register_config_story_strings(translated, lang=target_lang)
@@ -219,6 +267,12 @@ def _apply_offline_fallback(payload: Dict[str, Any], lang: str) -> Dict[str, Any
             aid = agent.get("id")
             if aid in agent_matches:
                 agent.update(agent_matches[aid])
+
+        clue_matches = match.get("clues", {})
+        for clue in res.get("clues", []):
+            cid = clue.get("id")
+            if cid in clue_matches:
+                clue.update(clue_matches[cid])
         return res
 
     # Heuristic fallback for other scenarios

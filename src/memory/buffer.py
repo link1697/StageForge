@@ -25,6 +25,7 @@ class MemoryBuffer:
         agent_id: str,
         system_prompt: Optional[str] = None,
         window_size: int = 10,
+        include_round_headers: bool = False,
     ) -> List[Dict[str, str]]:
         """为特定 Agent 组装符合 OpenAI 规范的上下文消息列表
 
@@ -32,6 +33,7 @@ class MemoryBuffer:
         1. 第一条为 system 消息（若传入了 system_prompt）。
         2. 滑动窗口截取最近 window_size 条公开发言。
         3. Agent 自身的历史发言映射为 assistant，其余角色或玩家发言映射为带名字前缀的 user 消息。
+        4. 可选开启 include_round_headers 注入显式轮次分界标。
         """
         context: List[Dict[str, str]] = []
 
@@ -43,16 +45,23 @@ class MemoryBuffer:
             self._messages[-window_size:] if window_size > 0 else self._messages
         )
 
+        current_round_marker = -1
         for msg in recent_messages:
+            prefix = ""
+            if include_round_headers and msg.round_idx != current_round_marker:
+                current_round_marker = msg.round_idx
+                prefix = f"【第 {current_round_marker} 轮审讯记录】\n"
+
             if msg.sender_id == agent_id:
                 context.append({
                     "role": "assistant",
                     "content": msg.content,
                 })
             else:
+                speaker_tag = f"[{msg.sender_name}]"
                 context.append({
                     "role": "user",
-                    "content": f"[{msg.sender_name}]: {msg.content}",
+                    "content": f"{prefix}{speaker_tag}: {msg.content}",
                 })
 
         return context

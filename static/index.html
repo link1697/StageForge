@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=2">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
   <div class="app-container">
@@ -24,7 +24,7 @@
           </svg>
           <span data-i18n="nav_dossier">档案</span>
         </button>
-        <span class="game-badge">AGY RUNTIME V2</span>
+        <span class="game-badge">StageForge</span>
         <h1 id="game-title" class="game-title">庄园疑案</h1>
       </div>
       <div class="header-right">
@@ -94,7 +94,18 @@
             <!-- 动态注入嫌疑人卡片 -->
           </div>
         </div>
+
+        <div class="panel clues-panel">
+          <div class="panel-header">
+            <h3 data-i18n="clues_header">🔍 案件物证库</h3>
+            <span class="badge-count" id="clues-count">0 项已起获</span>
+          </div>
+          <div class="clues-list" id="clues-list">
+            <!-- 动态注入物证卡片 -->
+          </div>
+        </div>
       </aside>
+
 
       <!-- 中间：审讯笔录对话流与交互面板 -->
       <section class="inquest-area">
@@ -113,6 +124,17 @@
             <!-- 动态注入对话气泡 -->
           </div>
 
+          <!-- 动态破绽搜查与物证验证栏 (发现嫌疑人破绽时动态弹出) -->
+          <div id="clues-action-bar" class="clues-action-bar hidden">
+            <div class="clues-action-header">
+              <span class="clue-pulse-icon">🔍</span>
+              <strong id="clues-action-title" data-i18n="clues_action_title">发现证言破绽！可搜查验证疑点：</strong>
+            </div>
+            <div id="clues-action-buttons" class="clues-action-buttons">
+              <!-- 动态注入搜查按钮 -->
+            </div>
+          </div>
+
           <!-- 底部输入框与操作栏 -->
           <div class="chat-input-bar">
             <div class="input-wrapper">
@@ -122,6 +144,7 @@
                 data-i18n-placeholder="input_placeholder"
                 placeholder="作为侦探，输入你想问话或质证的问题...（Enter 发送，Shift+Enter 换行）"
               ></textarea>
+
               <div class="input-actions">
                 <button id="accuse-btn" class="btn btn-warning" title="指认真正凶手">
                   <span data-i18n="btn_accuse_title">⚖️ 指认真凶</span>
@@ -280,7 +303,8 @@
     </div>
   </div>
 
-  <script src="/static/strings.js?v=1"></script>
-  <script src="/static/app.js?v=6"></script>
+  <script src="/static/strings.js?v=6"></script>
+  <script src="/static/app.js?v=13"></script>
 </body>
+
 </html>

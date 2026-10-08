@@ -64,8 +64,14 @@ def test_game_session_with_rag():
     llm = LLMClient(mock_mode=True)
     session = GameSession(config=cfg, llm_client=llm)
 
-    # 验证 RAG 索引创建
+    # 验证 RAG 初始只索引常识，未搜查物证处于锁定状态（严防信息泄漏）
     assert session.rag is not None
+    assert len(session.rag.memory_store) == 1
+    assert session.clues_state["clock"]["status"] == "locked"
+
+    # 执行搜查后，线索确凿并动态注入 RAG
+    session.search_clue("clock")
+    assert session.clues_state["clock"]["status"] == "discovered"
     assert len(session.rag.memory_store) == 2
 
     # 执行问话
@@ -73,3 +79,4 @@ def test_game_session_with_rag():
     assert len(turns) == 2
     assert turns[0].is_player is True
     assert turns[1].speaker_id == "agent_butler"
+

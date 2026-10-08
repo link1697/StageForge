@@ -11,23 +11,36 @@ StageForge is a modular, configuration-driven multi-agent deduction and interact
 
 ---
 
+## 📸 Demo & UI Showcase
+
+| **Interrogation Room & Live Transcript** | **Case Briefing Dossier** |
+| :---: | :---: |
+| ![Web Interrogation Room](docs/images/web_ui_interrogation.png) | ![Case Briefing Modal](docs/images/case_briefing_modal.png) |
+| **Accusation & Final Verdict** | **Deduction Truth Reveal & Outcome** |
+| ![Accusation Modal](docs/images/accuse_verdict_modal.png) | ![Case Defeat / Victory Truth](docs/images/case_defeat_truth_reveal.png) |
+
+---
+
 ## ✨ Key Features
 
 - 📄 **100% Schema-Driven Decoupling**: Narrative world-lore, suspect personas, dynamic clue distribution, round schedules, and avatar representations are fully parameterized via YAML with **Pydantic v2** validation. Zero hardcoding in engine core.
+- 🔌 **Model Context Protocol (MCP 2.x) Integration**:
+  - Exposes active case resources (`case://brief`, `case://suspects`) and forensic tools (`inspect_clue`, `query_manor_lore`, `check_alibi_timeline`) via standard MCP Server & Client architecture, empowering agents to dynamically verify physical evidence.
+- 🛡️ **Anti-Hallucination & Dialogue Grounding Protocol**:
+  - **Zero Ghost Arguments**: Engine-level strict constraint preventing suspects from fabricating unsaid accusations or reacting to ghost claims across turns.
+  - **Explicit Round Markers & Perspective Isolation**: Sliding-window buffer transforming dialogues dynamically per agent (`assistant` for self, named `user` for others) with cross-round timeline preservation.
 - 🔍 **Hybrid Retrieval-Augmented Generation (Hybrid RAG)**:
   - **Dense + Sparse Dual-Path Recall**: Combines **ChromaDB** vector search for semantic relevance and **BM25Plus** (with Jieba tokenizer) for precise keyword matching on forensic items, timestamps, and locations.
   - **Reciprocal Rank Fusion (RRF)**: Merges and reranks retrieved context to eliminate hallucinations in investigative deductions.
 - ⚡ **High-Throughput Serving & Structured Decoding**:
-  - **SGLang & RadixAttention**: Leverages prefix caching for long, shared world-lore prompts across suspects, reducing prompt prefill latency (TTFT) by over 60%.
+  - **SGLang & RadixAttention**: Leverages prefix caching for long, shared world-lore prompts across suspects, reducing prompt prefill latency (TTFT) by reusing KV cache.
   - **Constrained Decoding**: Supports JSON Schema and regex-guided generation for deterministic agent outputs and state transitions.
-- 🛡️ **Fault-Tolerant Multi-Tier Fallback & Circuit Breaking**:
-  - Seamlessly handles `HTTP 429` (Quota Exhaustion) and upstream timeouts via an automated fallback chain: **Local SGLang Cluster ➔ Primary Commercial LLM ➔ Backup Model Pool ➔ Offline Deterministic Simulation Engine**.
+- 🛡️ **Fault-Tolerant Multi-Tier Model Failover**:
+  - Seamlessly handles `HTTP 429` (Quota Exhaustion) and upstream timeouts via an automated failover chain: **Local SGLang Cluster ➔ Primary LLM API ➔ Dynamic Backup Model Pool**.
 - ⚙️ **Deterministic Asymmetric State Machine (FSM)**:
-  - Manages round-robin conversational turns, interrogation limits, accusation trials, and victory/defeat evaluations.
-- 🧠 **Context Isolation & Perspective Transformation**:
-  - Sliding-window dialog buffer that translates dialogue streams dynamically per agent perspective (`assistant` for self, named `user` for others).
-- 🌐 **Modern Interactive Web UI & CLI**:
-  - Full-featured dark-mode Web interface with real-time SSE streaming, character state inspectors, dynamic suspect tabs, and responsive layout.
+  - Manages round-robin conversational turns, interrogation limits, contradiction-triggered clue searches, accusation trials, and victory/defeat evaluations.
+- 🌐 **Modern Interactive Bilingual Web UI & CLI**:
+  - Full-featured dark/light mode Web interface with real-time SSE streaming, interactive clue discovery & dismissal bar, bilingual hot-switching (English & Chinese), character dossier tabs, and responsive layout.
 
 ---
 
@@ -35,8 +48,9 @@ StageForge is a modular, configuration-driven multi-agent deduction and interact
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
-│ 1. Configuration & Narrative Layer (Schema-Driven)                    │
+│ 1. Configuration & Narrative Layer (Schema-Driven & i18n)              │
 │    configs/*.yaml ──> ConfigLoader (Pydantic v2 Validation)            │
+│    src/config/translator.py (Dynamic bilingual translation & fallback) │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ Validated GameConfig
                                     ▼
@@ -44,6 +58,8 @@ StageForge is a modular, configuration-driven multi-agent deduction and interact
 │ 2. Runtime Core & State Orchestration (StageForge Engine)             │
 │    ├── TurnScheduler (FSM, Turn advancement, Accusation Verdict)      │
 │    ├── MemoryManager (Sliding window context & persona isolation)      │
+│    ├── GroundingProtocol (Strict zero-hallucination constraint)        │
+│    ├── Model Context Protocol (MCP Server & Tools integration)         │
 │    └── HybridRAGEngine (BM25Plus + ChromaDB + Reciprocal Rank Fusion)  │
 └──────────────────┬─────────────────────────────────┬───────────────────┘
                    │ Turn: Player (Detective)         │ Turn: Multi-Agent Suspect
@@ -51,9 +67,8 @@ StageForge is a modular, configuration-driven multi-agent deduction and interact
 ┌───────────────────────────────────┐ ┌──────────────────────────────────┐
 │ 3. Interactivity Layer            │ │ 4. Resilient LLM Serving Layer   │
 │    ├── Web UI (FastAPI + SSE)     │ │    ├── SGLang (RadixAttention)   │
-│    └── CLI Terminal Input         │ │    ├── Primary Cloud LLM API     │
-│                                   │ │    ├── Fallback Pool (Gemini)    │
-│                                   │ │    └── Mock Simulation Fallback  │
+│    ├── Interactive Clue Search    │ │    ├── Primary Cloud LLM API     │
+│    └── CLI Terminal Input         │ │    └── Dynamic Backup Model Pool │
 └──────────────────┬────────────────┘ └──────────────────┬───────────────┘
                    │ Event Broadcast                     │ Model Response
                    └────────────────┬────────────────────┘
@@ -73,33 +88,43 @@ StageForge is a modular, configuration-driven multi-agent deduction and interact
 │   ├── detective_mystery.yaml          # Manor Mystery (2 suspects: Butler & Gardener)
 │   ├── snow_mansion_6suspects.yaml     # Snowbound Mansion (6 suspects)
 │   └── orient_express_12suspects.yaml  # Express Murder (12 suspects)
+├── docs/                               # Documentation & Assets
+│   └── images/                         # Web UI screenshots and demo previews
 ├── src/
-│   ├── config/                         # Schema validation & YAML loader
-│   │   ├── loader.py
-│   │   └── schema.py
+│   ├── api/                            # FastAPI backend application
+│   │   └── server.py                   # REST endpoints, SSE streams, clue search
+│   ├── config/                         # Schema validation, i18n & YAML loader
+│   │   ├── loader.py                   # YAML loader with strict Pydantic parsing
+│   │   ├── schema.py                   # Pydantic v2 models (GameConfig, AgentConfig, etc.)
+│   │   ├── strings.py                  # Centralized bilingual string registry
+│   │   └── translator.py               # Dynamic config translation & offline dictionary
 │   ├── engine/                         # FSM runtime & turn scheduler
-│   │   ├── runtime.py
-│   │   ├── scheduler.py
-│   │   └── session.py
-│   ├── memory/                         # Dialog buffer & Hybrid RAG engine
-│   │   ├── buffer.py
-│   │   └── rag.py                      # ChromaDB + BM25Plus + RRF implementation
+│   │   ├── runtime.py                  # Core engine lifecycle & accusation handling
+│   │   ├── scheduler.py                # Asymmetric turn FSM & round coordinator
+│   │   └── session.py                  # Game session, grounding protocols & clue triggers
 │   ├── llm/                            # LLM clients & multi-tier circuit breakers
-│   │   ├── client.py                   # Multi-tier fallback pipeline
+│   │   ├── client.py                   # Model failover pipeline (SGLang -> OpenAI -> Gemini fallback)
 │   │   └── sglang_client.py            # SGLang RadixAttention client
-│   └── web/                            # FastAPI backend application
-│       └── app.py
+│   ├── mcp_server/                     # Model Context Protocol (MCP 2.x) support
+│   │   ├── client.py                   # In-process & async MCP client
+│   │   └── server.py                   # Case dossier resources & forensic tools
+│   └── memory/                         # Dialog buffer & Hybrid RAG engine
+│       ├── buffer.py                   # Sliding-window context & perspective translation
+│       └── rag.py                      # ChromaDB + BM25Plus + RRF implementation
 ├── static/                             # Web UI frontend (Vanilla JS & Modern CSS)
-│   ├── index.html
-│   ├── style.css
-│   └── app.js
-├── tests/                              # Pytest test suite (23 tests passing)
-│   ├── test_config.py
-│   ├── test_memory.py
-│   ├── test_rag_sglang.py
-│   ├── test_runtime.py
-│   ├── test_scheduler.py
-│   └── test_session.py
+│   ├── index.html                      # Single-page interrogation room interface
+│   ├── style.css                       # Sleek dark-mode design system & animations
+│   ├── strings.js                      # Client-side i18n translation dictionary
+│   └── app.js                          # State management, SSE, and interactive clue verification
+├── tests/                              # Pytest test suite (28 tests passing)
+│   ├── test_config.py                  # Schema validation tests
+│   ├── test_mcp.py                     # MCP server, tools & client tests
+│   ├── test_memory.py                  # Sliding window & perspective mapping tests
+│   ├── test_rag_sglang.py              # BM25Plus, ChromaDB & SGLang tests
+│   ├── test_runtime.py                 # Turn progression & accusation outcome tests
+│   ├── test_scheduler.py               # FSM lifecycle tests
+│   ├── test_session.py                 # Full game session integration tests
+│   └── test_translation.py            # Bilingual translation tests
 ├── main.py                             # Unified CLI & Web entry point
 ├── pyproject.toml                      # Project metadata & build specs
 ├── requirements.txt                    # Python dependencies
@@ -125,7 +150,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Model API Keys (Optional)
+### 2. Configure Model API Keys 
 
 Copy the environment template:
 ```bash
@@ -145,9 +170,7 @@ GEMINI_API_KEY=your_gemini_key_here
 # SGLang Local Server (Optional for extreme inference acceleration)
 SGLANG_API_URL=http://localhost:30000
 ```
-
-> **Note**: If no API keys are provided or quota runs out (`HTTP 429`), the built-in resilient fallback system will automatically kick in without crashing the game!
-
+ 
 ---
 
 ### 3. Launching StageForge
@@ -168,9 +191,6 @@ python main.py -c configs/detective_mystery.yaml
 
 # Run Snowbound Mansion scenario (6 suspects)
 python main.py -c configs/snow_mansion_6suspects.yaml
-
-# Run offline with deterministic Mock engine (no API keys required)
-python main.py --mock
 ```
 
 #### CLI Parameters:
@@ -180,7 +200,6 @@ python main.py --mock
 | `--web` | Start FastAPI web server instead of CLI | `False` |
 | `--host` | Web server bind address | `127.0.0.1` |
 | `--port` | Web server port | `8000` |
-| `--mock` | Force offline deterministic mock engine | `False` |
 | `--model` | Temporarily override default LLM model name | Config default |
 | `--window` | Sliding memory window size | `10` |
 
@@ -188,7 +207,7 @@ python main.py --mock
 
 ## 🧪 Testing
 
-StageForge includes a comprehensive automated test suite with full coverage on schema validation, memory windows, turn schedulers, Hybrid RAG indexing, and SGLang fallback logic.
+StageForge includes a comprehensive automated test suite with full coverage across schema validation, MCP server/tools, sliding-window memory buffers, turn schedulers, Hybrid RAG indexing, SGLang fallback logic, and dynamic translation:
 
 ```bash
 .venv/bin/pytest -v
@@ -196,14 +215,16 @@ StageForge includes a comprehensive automated test suite with full coverage on s
 
 Output:
 ```text
-tests/test_config.py .......     [ 30%]
-tests/test_memory.py ...         [ 43%]
-tests/test_rag_sglang.py .....   [ 65%]
-tests/test_runtime.py ...        [ 78%]
-tests/test_scheduler.py ..       [ 86%]
-tests/test_session.py ...        [100%]
+tests/test_config.py .......                  [ 25%]
+tests/test_mcp.py ...                         [ 35%]
+tests/test_memory.py ...                      [ 46%]
+tests/test_rag_sglang.py .....                [ 64%]
+tests/test_runtime.py ...                     [ 75%]
+tests/test_scheduler.py ..                    [ 82%]
+tests/test_session.py ...                     [ 92%]
+tests/test_translation.py ..                  [100%]
 
-======================== 23 passed in 5.72s ========================
+======================== 28 passed in 4.87s ========================
 ```
 
 ---
