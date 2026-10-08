@@ -3,11 +3,12 @@ from typing import Optional, List
 from src.config.schema import GameConfig, Message, AgentConfig
 from src.engine.scheduler import TurnScheduler
 from src.memory.buffer import MemoryBuffer
+from src.memory.rag import HybridRAGEngine
 from src.llm.client import LLMClient
 
 
 class GameRuntime:
-    """游戏运行时主控引擎：驱动状态机、输入处理、投票裁决与 LLM 交互"""
+    """游戏运行时主控引擎：驱动状态机、输入处理、投票裁决与 LLM 交互（已集成双路 RAG 记忆检索）"""
 
     def __init__(
         self,
@@ -27,6 +28,31 @@ class GameRuntime:
         self.window_size = window_size
         self.accused = False
         self.result: Optional[str] = None  # "victory" 或 "defeat"
+
+        # 初始化双路 RAG 知识检索系统 (Chroma + BM25)
+        self.rag = HybridRAGEngine(collection_name=f"cli_lore_{abs(hash(config.name)) % 10000}")
+        self._index_world_knowledge()
+
+    def _index_world_knowledge(self) -> None:
+        """预热并索引世界设定集（World Lore）与物证库（Clues）"""
+        docs = []
+        if hasattr(self.config, "world_lore") and self.config.world_lore:
+            for idx, item in enumerate(self.config.world_lore):
+                docs.append({
+                    "id": f"lore_{idx}",
+                    "content": item,
+                    "metadata": {"type": "world_lore", "index": idx},
+                })
+        if hasattr(self.config, "clues") and self.config.clues:
+            for idx, clue in enumerate(self.config.clues):
+                clue_text = f"【物证档案】{clue.get('name', '')}：{clue.get('detail', '')} 发现地点：{clue.get('location', '未知')}"
+                docs.append({
+                    "id": f"clue_{clue.get('id', idx)}",
+                    "content": clue_text,
+                    "metadata": {"type": "clue", "name": clue.get("name", "")},
+                })
+        if docs:
+            self.rag.add_documents(docs)
 
     def _print_prologue(self) -> None:
         """打印开场介绍与角色信息"""

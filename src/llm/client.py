@@ -68,6 +68,10 @@ class LLMClient:
         else:
             self.client = None
 
+        # 初始化 SGLang 高性能推理客户端 (RadixAttention 共享 KV Cache 前缀加速)
+        from src.llm.sglang_client import SGLangClient
+        self.sglang_client = SGLangClient()
+
         # 备选降级模型列表（按轻量与独立配额优先级排序）
         self.fallback_models = [
             "gemini-2.5-flash",
@@ -91,7 +95,19 @@ class LLMClient:
             # 无 Client 时自动降级为 Mock
             return self._generate_mock_response(messages)
 
-        # 尝试当前主模型及降级备用模型
+        # 1. 优先尝试本地/内网高性能 SGLang 推理运行时 (RadixAttention 共享 KV Cache，降低首字延迟 TTFT)
+        if hasattr(self, "sglang_client") and self.sglang_client and self.sglang_client.is_available:
+            try:
+                sgl_resp = self.sglang_client.generate_with_constraints(
+                    messages=messages,
+                    temperature=temperature,
+                )
+                if sgl_resp:
+                    return sgl_resp
+            except Exception as e:
+                print(f"[SGLang 运行时降级] SGLang 发生异常，回退至云端 API 网关: {e}")
+
+        # 2. 尝试云端当前主模型及降级备用模型池
         models_to_try = [self.model_name] + self.fallback_models
 
         for candidate_model in models_to_try:

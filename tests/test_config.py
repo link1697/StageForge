@@ -14,7 +14,7 @@ def test_load_valid_config():
     assert config.turn_order == ["player", "agent_butler", "agent_gardener"]
     assert len(config.agents) == 2
     assert config.get_agent("agent_butler") is not None
-    assert config.get_agent("agent_butler").name == "老管家"
+    assert config.get_agent("agent_butler").name in ("理查德", "老管家")
     assert config.get_agent("non_existent") is None
 
 

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from src.config.schema import GameConfig, Message, AgentConfig
 from src.engine.scheduler import TurnScheduler
 from src.memory.buffer import MemoryBuffer
+from src.memory.rag import HybridRAGEngine
 from src.llm.client import LLMClient, LLMClientError
 
 
@@ -31,7 +32,7 @@ class StepResponse(BaseModel):
 
 
 class GameSession:
-    """可步进交互的游戏会话，用于 Web 前端 / API 交互"""
+    """可步进交互的游戏会话，用于 Web 前端 / API 交互（已集成双路 RAG 记忆检索与 SGLang 加速支持）"""
 
     def __init__(
         self,
@@ -50,6 +51,33 @@ class GameSession:
         self.accused = False
         self.result: Optional[str] = None
         self.chosen_culprit_id: Optional[str] = None
+
+        # 初始化双路 RAG 知识检索系统 (Chroma + BM25)
+        self.rag = HybridRAGEngine(collection_name=f"lore_{abs(hash(config.name)) % 10000}")
+        self._index_world_knowledge()
+
+    def _index_world_knowledge(self) -> None:
+        """预热并索引世界设定集（World Lore）与物证库（Clues）"""
+        docs = []
+        # 1. 索引剧本世界设定
+        if hasattr(self.config, "world_lore") and self.config.world_lore:
+            for idx, item in enumerate(self.config.world_lore):
+                docs.append({
+                    "id": f"lore_{idx}",
+                    "content": item,
+                    "metadata": {"type": "world_lore", "index": idx},
+                })
+        # 2. 索引案情线索数据库
+        if hasattr(self.config, "clues") and self.config.clues:
+            for idx, clue in enumerate(self.config.clues):
+                clue_text = f"【物证档案】{clue.get('name', '')}：{clue.get('detail', '')} 发现地点：{clue.get('location', '未知')}"
+                docs.append({
+                    "id": f"clue_{clue.get('id', idx)}",
+                    "content": clue_text,
+                    "metadata": {"type": "clue", "name": clue.get("name", "")},
+                })
+        if docs:
+            self.rag.add_documents(docs)
 
     def get_state(self) -> Dict[str, Any]:
         """获取当前游戏状态摘要"""
@@ -172,12 +200,33 @@ class GameSession:
             if not agent:
                 raise RuntimeError(f"未找到发言角色配置: {speaker_id}")
 
-            # 调用 LLM 或 Mock 生成台词
+            # 1. 获取最新玩家提问或案情焦点，触发双路 RAG 知识召回 (Chroma + BM25)
+            last_query = ""
+            for msg in reversed(self.memory.messages):
+                if msg.role == "user":
+                    last_query = msg.content
+                    break
+
+            retrieved_lore = self.rag.retrieve(query=last_query, top_k=2) if last_query else []
+            lore_prompt_addon = ""
+            if retrieved_lore:
+                lore_snippets = [f"- {item['content']}" for item in retrieved_lore]
+                lore_prompt_addon = (
+                    "\n\n【相关世界设定与案发现场记忆（由 RAG 动态召回，回答时保持一致，不可自相矛盾）】:\n"
+                    + "\n".join(lore_snippets)
+                )
+
+            # 2. 组装增强提示词（包含基础人设 + RAG 知识增强）
+            augmented_system_prompt = agent.system_prompt + lore_prompt_addon
+
+            # 3. 构造滑动窗口上下文
             context = self.memory.get_context_for_agent(
                 agent_id=agent.id,
-                system_prompt=agent.system_prompt,
+                system_prompt=augmented_system_prompt,
                 window_size=self.window_size,
             )
+
+            # 4. 执行大模型生成
             reply = self.llm_client.generate_response(
                 messages=context,
                 temperature=agent.temperature,

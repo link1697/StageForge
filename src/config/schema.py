@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Dict, Any
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -26,6 +26,14 @@ class GameConfig(BaseModel):
     min_accuse_round: int = Field(default=4, ge=1, description="最早允许指认凶手的轮次")
     culprit_id: Optional[str] = Field(None, description="真凶的角色ID")
     truth_revealed: Optional[str] = Field(None, description="真凶案情揭秘与真相说明")
+    world_lore: Optional[List[str]] = Field(
+        default_factory=list,
+        description="万字世界设定集与地理建筑设定，由 Chroma+BM25 双路 RAG 检索动态管理",
+    )
+    clues: Optional[List[Dict[str, Any]]] = Field(
+        default_factory=list,
+        description="物证线索数据库（如金怀表、万能钥匙、毒药瓶），根据提问动态唤醒记忆",
+    )
 
     @model_validator(mode="after")
     def validate_turn_order_and_agents(self) -> "GameConfig":
