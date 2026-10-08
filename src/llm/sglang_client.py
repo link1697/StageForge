@@ -33,10 +33,24 @@ class SGLangClient:
 
     def _check_connection(self) -> None:
         """检查 SGLang 本地推理服务心跳"""
-        import urllib.request
+        import socket
         try:
+            # Quick socket probe to avoid urllib hanging on silent network drop
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.2)
+            # parse port from base_url if present
+            port = 30000
+            if ":30000" in self.base_url:
+                port = 30000
+            res = s.connect_ex(("127.0.0.1", port))
+            s.close()
+            if res != 0:
+                self.is_available = False
+                return
+
+            import urllib.request
             req = urllib.request.Request(f"{self.base_url.rstrip('/')}/models", method="GET")
-            with urllib.request.urlopen(req, timeout=1.0) as resp:
+            with urllib.request.urlopen(req, timeout=0.5) as resp:
                 if resp.status == 200:
                     self.is_available = True
         except Exception:

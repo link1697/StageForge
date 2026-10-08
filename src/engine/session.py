@@ -7,6 +7,15 @@ from src.engine.scheduler import TurnScheduler
 from src.memory.buffer import MemoryBuffer
 from src.memory.rag import HybridRAGEngine
 from src.llm.client import LLMClient, LLMClientError
+from src.config.strings import (
+    get_text,
+    LABEL_DETECTIVE_ME,
+    LABEL_UNKNOWN_CULPRIT,
+    ERROR_GAME_TERMINATED,
+    ERROR_NOT_PLAYER_TURN,
+    ERROR_SUSPECT_NOT_FOUND,
+)
+
 
 
 class TurnResult(BaseModel):
@@ -115,6 +124,8 @@ class GameSession:
         return {
             "name": self.config.name,
             "case_name": self.config.case_name or self.config.name,
+            "lang": getattr(self.config, "lang", "zh"),
+            "default_language": getattr(self.config, "default_language", "zh"),
             "description": self.config.description,
             "case_brief": self.config.case_brief or self.config.description,
             "current_round": min(self.scheduler.current_round, self.config.max_rounds),
@@ -152,19 +163,32 @@ class GameSession:
             ],
         }
 
+    def update_language(self, new_lang: str) -> None:
+        """热切换游戏运行语言，保留已有回合与记忆，动态更新角色设定与配置"""
+        norm_lang = "en" if new_lang.lower().startswith("en") else "zh"
+        if getattr(self.config, "lang", "zh") == norm_lang:
+            return
+
+        from src.config.translator import translate_game_config
+        # 翻译或还原配置，保持当前进度
+        self.config = translate_game_config(self.config, target_lang=norm_lang, llm_client=self.llm_client)
+
+
     def player_speak(self, text: str) -> List[TurnResult]:
         """玩家提交问话，存入记忆，推进游标，并自动连续推进后续 AI 的回合，直至下一次轮到玩家或游戏结束"""
+        lang = getattr(self.config, "lang", "zh")
         if self.scheduler.is_terminated():
-            raise RuntimeError("游戏已结束，无法继续发言")
+            raise RuntimeError(get_text(ERROR_GAME_TERMINATED, lang=lang))
 
         curr_speaker = self.scheduler.get_current_speaker()
         if curr_speaker != "player":
-            raise RuntimeError(f"当前不是玩家发言回合，当前发言者为: {curr_speaker}")
+            raise RuntimeError(get_text(ERROR_NOT_PLAYER_TURN, lang=lang, speaker=curr_speaker))
 
         round_num = self.scheduler.current_round
+        detective_name = get_text(LABEL_DETECTIVE_ME, lang=lang)
         player_turn = TurnResult(
             speaker_id="player",
-            speaker_name="侦探(你)",
+            speaker_name=detective_name,
             content=text,
             round_idx=round_num,
             is_player=True,
@@ -172,7 +196,7 @@ class GameSession:
         self.memory.append(
             Message(
                 sender_id="player",
-                sender_name="侦探(你)",
+                sender_name=detective_name,
                 content=text,
                 role="user",
                 round_idx=round_num,
@@ -216,8 +240,15 @@ class GameSession:
                     + "\n".join(lore_snippets)
                 )
 
-            # 2. 组装增强提示词（包含基础人设 + RAG 知识增强）
-            augmented_system_prompt = agent.system_prompt + lore_prompt_addon
+            # 2. 组装增强提示词（包含基础人设 + RAG 知识增强 + 语言约束）
+            lang_instruction = ""
+            if getattr(self.config, "lang", "zh") == "en":
+                lang_instruction = (
+                    "\n\n【Language Requirement】: You MUST speak and respond strictly in English! "
+                    "All your dialogue, reactions, and inner defenses MUST be in English only."
+                )
+
+            augmented_system_prompt = agent.system_prompt + lore_prompt_addon + lang_instruction
 
             # 3. 构造滑动窗口上下文
             context = self.memory.get_context_for_agent(
@@ -258,9 +289,10 @@ class GameSession:
 
     def accuse(self, target_agent_id: str) -> Dict[str, Any]:
         """玩家指认真凶做出裁决"""
+        lang = getattr(self.config, "lang", "zh")
         target = self.config.get_agent(target_agent_id)
         if not target:
-            raise ValueError(f"未找到指定的嫌疑人: {target_agent_id}")
+            raise ValueError(get_text(ERROR_SUSPECT_NOT_FOUND, lang=lang, id=target_agent_id))
 
         self.accused = True
         self.chosen_culprit_id = target_agent_id

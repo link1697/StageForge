@@ -29,6 +29,11 @@ def load_game_config(config_path: Union[str, Path]) -> GameConfig:
         raise ConfigLoadError("配置文件内容必须是一个 YAML 映射对象 (Mapping)")
 
     try:
-        return GameConfig.model_validate(raw_data)
+        config = GameConfig.model_validate(raw_data)
+        # 自动提取并注册故事背景与角色设定文案至中央本地化字串仓库 (i18n)
+        from src.config.translator import register_config_story_strings
+        register_config_story_strings(config, lang=config.default_language or "zh")
+        return config
     except ValidationError as e:
         raise ConfigLoadError(f"配置验证失败:\n{e}") from e
+

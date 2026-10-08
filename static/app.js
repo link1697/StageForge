@@ -1,5 +1,4 @@
-// Web Frontend State Management & API Client
-
+// State Management & Client Logic (Strings separated to strings.js)
 const state = {
   currentRound: 1,
   maxRounds: 7,
@@ -8,7 +7,54 @@ const state = {
   status: "idle",
   agents: [],
   isLoading: false,
+  lang: localStorage.getItem("stageforge_lang") || "zh",
+  theme: localStorage.getItem("stageforge_theme") || "dark",
+  rawState: null,
 };
+
+// 获取翻译文案（由 strings.js 集中管理）
+function t(key, params = {}) {
+  const dict = (typeof UI_DICTIONARIES !== "undefined" ? UI_DICTIONARIES[state.lang] : null) || {};
+  const fallback = (typeof UI_DICTIONARIES !== "undefined" ? UI_DICTIONARIES.zh : null) || {};
+  let text = dict[key] || fallback[key] || key;
+  for (const [k, v] of Object.entries(params)) {
+    text = text.replaceAll(`{${k}}`, v);
+  }
+  return text;
+}
+
+// 应用静态 DOM i18n
+function applyI18n() {
+  document.documentElement.lang = state.lang === "en" ? "en" : "zh-CN";
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (key) el.innerHTML = t(key);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-placeholder");
+    if (key) el.placeholder = t(key);
+  });
+
+  // 设置弹窗内表单项选中
+  const langSelect = document.getElementById("lang-select");
+  if (langSelect) langSelect.value = state.lang;
+  const themeSelect = document.getElementById("theme-select");
+  if (themeSelect) themeSelect.value = state.theme;
+
+  // 主题应用
+  applyTheme(state.theme);
+
+  if (state.rawState) {
+    renderFullState(state.rawState);
+  }
+}
+
+// 主题切换
+function applyTheme(theme) {
+  state.theme = theme;
+  localStorage.setItem("stageforge_theme", theme);
+  document.body.setAttribute("data-theme", theme);
+}
 
 // DOM Elements
 const roundDisplay = document.getElementById("round-display");
@@ -19,8 +65,14 @@ const playerInput = document.getElementById("player-input");
 const sendBtn = document.getElementById("send-btn");
 const accuseBtn = document.getElementById("accuse-btn");
 const restartBtn = document.getElementById("restart-btn");
-const mockToggle = document.getElementById("mock-toggle");
 const speakerIndicator = document.getElementById("speaker-indicator");
+
+const settingsBtn = document.getElementById("settings-btn");
+const settingsModal = document.getElementById("settings-modal");
+const closeSettingsBtn = document.getElementById("close-settings-btn");
+const applySettingsBtn = document.getElementById("apply-settings-btn");
+const langSelect = document.getElementById("lang-select");
+const themeSelect = document.getElementById("theme-select");
 
 const accuseModal = document.getElementById("accuse-modal");
 const closeModalBtn = document.getElementById("close-modal-btn");
@@ -46,11 +98,11 @@ function getAvatar(id) {
 
 // 格式化发言角色名
 function getSpeakerLabel(msg) {
-  if (msg.sender_id === "player") return "侦探 (你)";
+  if (msg.sender_id === "player" || msg.is_player) return t("speaker_detective_me");
   return msg.sender_name || msg.sender_id;
 }
 
-// 通用健壮请求封装（针对隧道代理网络波动自动重试 2 次）
+// 通用健壮请求封装（针对网络波动自动重试 2 次）
 async function fetchWithRetry(url, options = {}, retries = 2, backoff = 800) {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -58,13 +110,13 @@ async function fetchWithRetry(url, options = {}, retries = 2, backoff = 800) {
       return res;
     } catch (err) {
       if (i === retries) throw err;
-      console.warn(`[网络波动] 请求 ${url} 失败，正在重试第 ${i + 1} 次...`, err);
+      console.warn(`[网络重试] ${url} 正在重试第 ${i + 1} 次...`, err);
       await new Promise((r) => setTimeout(r, backoff * (i + 1)));
     }
   }
 }
 
-// 初始化/开局
+// 初始化/开局 (携带当前选择的语言)
 async function initGame() {
   setLoading(true);
   try {
@@ -73,6 +125,7 @@ async function initGame() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         mock_mode: false,
+        lang: state.lang,
       }),
     });
     const data = await res.json();
@@ -83,7 +136,7 @@ async function initGame() {
     }
   } catch (err) {
     console.error("Init error:", err);
-    alert("无法连接后端服务，请确认服务已启动。");
+    alert(t("connection_failed"));
   } finally {
     setLoading(false);
   }
@@ -91,6 +144,7 @@ async function initGame() {
 
 // 渲染完整状态
 function renderFullState(gameState) {
+  state.rawState = gameState;
   state.currentRound = gameState.current_round;
   state.maxRounds = gameState.max_rounds;
   state.minAccuseRound = gameState.min_accuse_round;
@@ -103,15 +157,15 @@ function renderFullState(gameState) {
   const gameTitleEl = document.getElementById("game-title");
   if (gameTitleEl && caseTitle) {
     gameTitleEl.textContent = caseTitle;
-    document.title = `${caseTitle} · 探案推理引擎`;
+    document.title = `${caseTitle} · StageForge`;
   }
   const transcriptTitleEl = document.getElementById("chat-transcript-title");
   if (transcriptTitleEl && caseTitle) {
-    transcriptTitleEl.textContent = `${caseTitle} · 审讯笔录`;
+    transcriptTitleEl.textContent = t("transcript_title", { case: caseTitle });
   }
   const guideModalTitleEl = document.getElementById("guide-modal-title");
   if (guideModalTitleEl && caseTitle) {
-    guideModalTitleEl.textContent = `🕵️‍♂️ ${caseTitle} · 案情速报`;
+    guideModalTitleEl.textContent = t("guide_modal_title", { case: caseTitle });
   }
   const gameDescEl = document.getElementById("game-description");
   if (gameDescEl) {
@@ -124,29 +178,32 @@ function renderFullState(gameState) {
   // 2. 侧边栏规则卡片动态轮次
   const ruleRounds = document.getElementById("sidebar-rule-rounds");
   if (ruleRounds) {
-    ruleRounds.innerHTML = `最多进行 <strong>${gameState.max_rounds} 轮</strong> 对话审讯。`;
+    ruleRounds.innerHTML = t("rule_rounds", { max: gameState.max_rounds });
   }
   const ruleAccuse = document.getElementById("sidebar-rule-accuse");
   if (ruleAccuse) {
-    ruleAccuse.innerHTML = `从 <strong>第 ${gameState.min_accuse_round} 轮</strong> 起即可随时开启「指认真凶」结案。`;
+    ruleAccuse.innerHTML = t("rule_accuse", { min: gameState.min_accuse_round });
   }
   const ruleMandatory = document.getElementById("sidebar-rule-mandatory");
   if (ruleMandatory) {
-    ruleMandatory.innerHTML = `到达第 ${gameState.max_rounds} 轮后必须立即强制指控，指认正确获胜，否则冤案失败！`;
+    ruleMandatory.innerHTML = t("rule_mandatory", { max: gameState.max_rounds });
   }
 
   // 3. 探案指引 Modal 动态数据渲染
   const guideStoryDesc = document.getElementById("guide-story-desc");
   if (guideStoryDesc && gameState.description) {
-    guideStoryDesc.innerHTML = `${escapeHTML(gameState.description)}<br>嫌疑人已被带至审讯室，正等待你的质询：`;
+    guideStoryDesc.innerHTML = `${escapeHTML(gameState.description)}<br>${t("guide_story_waiting")}`;
   }
   const guideRule1 = document.getElementById("guide-rule-1");
   if (guideRule1) {
-    guideRule1.textContent = `在底部输入你想质问的问题，场上 ${state.agents.length} 位嫌疑人会依次回答并互相攻防辩驳。`;
+    guideRule1.textContent = t("guide_rule1_desc", { count: state.agents.length });
   }
   const guideRule2 = document.getElementById("guide-rule-2");
   if (guideRule2) {
-    guideRule2.innerHTML = `整场审讯共有 <strong>${gameState.max_rounds} 轮</strong> 对话机会。从 <strong>第 ${gameState.min_accuse_round} 轮起</strong>，你可以随时点击「⚖️ 指认真凶」结案；若到了第 ${gameState.max_rounds} 轮则必须进行最终指控！`;
+    guideRule2.innerHTML = t("guide_rule2_desc", {
+      max: gameState.max_rounds,
+      min: gameState.min_accuse_round,
+    });
   }
 
   const guidePreview = document.getElementById("guide-suspects-preview");
@@ -155,11 +212,11 @@ function renderFullState(gameState) {
     state.agents.forEach((agent) => {
       const item = document.createElement("div");
       item.className = "preview-item";
-      const descText = agent.description || agent.role || "嫌疑人之一";
+      const descText = agent.description || agent.role || "";
       item.innerHTML = `
         <span class="preview-avatar">${agent.avatar || getAvatar(agent.id)}</span>
         <div>
-          <strong>${agent.name}（${agent.role}）</strong>
+          <strong>${agent.name} (${agent.role})</strong>
           <p>${escapeHTML(descText)}</p>
         </div>
       `;
@@ -168,10 +225,13 @@ function renderFullState(gameState) {
   }
 
   // 4. 进度指示
-  roundDisplay.textContent = `第 ${state.currentRound} / ${state.maxRounds} 轮`;
+  roundDisplay.textContent = t("round_format", {
+    curr: state.currentRound,
+    max: state.maxRounds,
+  });
 
   // 5. 嫌疑人列表
-  suspectsCount.textContent = `${state.agents.length} 位嫌疑人`;
+  suspectsCount.textContent = `${state.agents.length}${t("suspects_count_suffix")}`;
   suspectsList.innerHTML = "";
   state.agents.forEach((agent) => {
     const card = document.createElement("div");
@@ -199,11 +259,11 @@ function renderFullState(gameState) {
     });
   } else {
     // 渲染欢迎/开场指引
-    const names = state.agents.map((a) => a.name).join("、");
+    const names = state.agents.map((a) => a.name).join(", ");
     const welcomeBubble = document.createElement("div");
     welcomeBubble.className = "thinking-bubble";
     welcomeBubble.innerHTML = `
-      <span>🏛️ 审讯室大门已封闭。${names ? names + " 等嫌疑人" : "所有嫌疑人"}均已入席，请侦探开始第一轮质问。</span>
+      <span>${t("chat_welcome", { names: names || "Suspects" })}</span>
     `;
     chatMessages.appendChild(welcomeBubble);
   }
@@ -229,7 +289,7 @@ function renderFullState(gameState) {
 function renderRoundSeparator(roundNum) {
   const sep = document.createElement("div");
   sep.className = "round-separator";
-  sep.innerHTML = `<span>第 ${roundNum} 轮 审讯</span>`;
+  sep.innerHTML = `<span>${t("round_separator", { round: roundNum })}</span>`;
   chatMessages.appendChild(sep);
 }
 
@@ -258,7 +318,7 @@ function showThinkingIndicator(speakerName = "嫌疑人") {
   bubble.id = "thinking-indicator";
   bubble.className = "thinking-bubble";
   bubble.innerHTML = `
-    <span>${speakerName} 正在思考供词...</span>
+    <span>${t("thinking_text", { name: speakerName })}</span>
     <div class="dots">
       <div class="dot"></div>
       <div class="dot"></div>
@@ -277,7 +337,7 @@ function removeThinkingIndicator() {
 function updateAccuseButton() {
   if (state.canAccuse) {
     accuseBtn.style.display = "inline-flex";
-    accuseBtn.title = "已达到第4轮，随时可指认真凶结案";
+    accuseBtn.title = t("btn_accuse_tooltip", { min: state.minAccuseRound });
   } else {
     accuseBtn.style.display = "none";
   }
@@ -302,9 +362,9 @@ function setLoading(isLoading) {
   sendBtn.disabled = isLoading;
   playerInput.disabled = isLoading;
   if (isLoading) {
-    speakerIndicator.textContent = "审讯进行中...";
+    speakerIndicator.textContent = t("speaker_indicator_busy");
   } else {
-    speakerIndicator.textContent = "等待侦探提问...";
+    speakerIndicator.textContent = t("speaker_indicator_wait");
   }
 }
 
@@ -317,14 +377,14 @@ async function handleSend() {
   playerInput.value = "";
   renderMessageBubble({
     sender_id: "player",
-    sender_name: "侦探(你)",
+    sender_name: t("speaker_detective_me"),
     content: text,
     is_player: true,
   });
   scrollChatToBottom();
 
   setLoading(true);
-  showThinkingIndicator("嫌疑人");
+  showThinkingIndicator(state.lang === "en" ? "Suspect" : "嫌疑人");
 
   try {
     const res = await fetchWithRetry("/api/game/speak", {
@@ -342,7 +402,6 @@ async function handleSend() {
     }
 
     if (data.status === "success") {
-      // 重新按后端权威状态刷新完整面板
       renderFullState(data.state);
     }
   } catch (err) {
@@ -418,16 +477,64 @@ async function submitAccusation(agentId) {
 function showResultModal(result, truthText, chosenName = "", realCulpritName = "") {
   resultBanner.className = `result-banner ${result}`;
   if (result === "victory") {
-    resultTitle.textContent = "🎉 真相大白！探案胜利！";
-    resultSubtitle.textContent = `你成功识破伪装，指认了真凶【${chosenName || "真凶"}】！`;
+    resultTitle.textContent = t("result_victory_title");
+    resultSubtitle.textContent = t("result_victory_sub", { name: chosenName });
   } else {
-    resultTitle.textContent = "❌ 冤假错案！推理失败！";
-    resultSubtitle.textContent = `你指认了【${chosenName || "无辜者"}】，但真凶其实是【${realCulpritName || "真凶"}】！`;
+    resultTitle.textContent = t("result_defeat_title");
+    resultSubtitle.textContent = t("result_defeat_sub", { chosen: chosenName, real: realCulpritName });
   }
 
   truthContent.textContent = truthText;
   resultModal.classList.remove("hidden");
 }
+
+// 设置弹窗控制
+function openSettingsModal() {
+  if (langSelect) langSelect.value = state.lang;
+  if (themeSelect) themeSelect.value = state.theme;
+  if (settingsModal) settingsModal.classList.remove("hidden");
+}
+
+function closeSettingsModal() {
+  if (settingsModal) settingsModal.classList.add("hidden");
+}
+
+async function handleSaveSettings() {
+  const newLang = langSelect.value;
+  const newTheme = themeSelect.value;
+  const langChanged = newLang !== state.lang;
+
+  state.lang = newLang;
+  localStorage.setItem("stageforge_lang", newLang);
+  applyTheme(newTheme);
+  applyI18n();
+  closeSettingsModal();
+
+  if (langChanged) {
+    // 语言改变时，热更新后端当前对局语言配置，保留当前对局进度、轮次与历史记录
+    try {
+      const res = await fetchWithRetry("/api/game/language", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: newLang }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) {
+          renderFullState(data.state);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("更新服务器语言失败，仅在前端更新:", err);
+    }
+  }
+
+  if (state.rawState) {
+    renderFullState(state.rawState);
+  }
+}
+
 
 // 事件绑定
 sendBtn.addEventListener("click", handleSend);
@@ -442,14 +549,14 @@ accuseBtn.addEventListener("click", () => openAccuseModal(false));
 closeModalBtn.addEventListener("click", closeAccuseModal);
 cancelAccuseBtn.addEventListener("click", closeAccuseModal);
 
+if (settingsBtn) settingsBtn.addEventListener("click", openSettingsModal);
+if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", closeSettingsModal);
+if (applySettingsBtn) applySettingsBtn.addEventListener("click", handleSaveSettings);
+
 restartBtn.addEventListener("click", () => {
-  if (confirm("确定重新开始本案审讯吗？当前进度将被重置。")) {
-    // Hide any result modal that may be visible
-    const resultModal = document.getElementById("result-modal");
-    if (resultModal) {
-      resultModal.classList.add("hidden");
-    }
-    // Reinitialize the game state
+  if (confirm(t("restart_confirm"))) {
+    const resModal = document.getElementById("result-modal");
+    if (resModal) resModal.classList.add("hidden");
     initGame();
   }
 });
@@ -497,12 +604,21 @@ if (guideBtn) guideBtn.addEventListener("click", openGuideModal);
 if (closeGuideBtn) closeGuideBtn.addEventListener("click", closeGuideModal);
 if (startInvestigationBtn) startInvestigationBtn.addEventListener("click", closeGuideModal);
 
-// 页面加载自动开启游戏，并向新玩家展示背景指引
+// 页面加载自动开启游戏
 window.addEventListener("DOMContentLoaded", async () => {
+  // 先应用本地缓存或默认 i18n
+  applyI18n();
+
   try {
     const res = await fetchWithRetry("/api/game/state");
     const data = await res.json();
     if (data.active && data.state) {
+      // 若后端已有运行中的对局，以当前对局的语言为准，确保 UI 与剧情语言 100% 同步
+      if (data.state.lang && data.state.lang !== state.lang) {
+        state.lang = data.state.lang;
+        localStorage.setItem("stageforge_lang", data.state.lang);
+        applyI18n();
+      }
       renderFullState(data.state);
     } else {
       await initGame();
@@ -510,6 +626,5 @@ window.addEventListener("DOMContentLoaded", async () => {
   } catch (err) {
     await initGame();
   }
-  // 首次打开页面时自动弹出背景与玩法指南
   openGuideModal();
 });

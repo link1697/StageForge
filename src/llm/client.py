@@ -168,17 +168,90 @@ class LLMClient:
                     last_user_msg = m.get("content", "")
                     break
 
-        # 角色判断（根据 system_prompt 中定义的第一人称人设，严格区分管家与园丁/花匠）
+        # 角色判断（严格区分管家与园丁/花匠，同时兼容中文与英文系统提示词）
+        is_english = "in English" in system_prompt or "detective's questions in fluent English" in system_prompt
         is_butler = (
-            ("老管家" in system_prompt or "理查德" in system_prompt)
-            and ("你是庄园花匠" not in system_prompt and "你是年轻园丁" not in system_prompt)
+            ("老管家" in system_prompt or "理查德" in system_prompt or "butler" in system_prompt.lower() or "richard" in system_prompt.lower())
+            and ("你是庄园花匠" not in system_prompt and "你是年轻园丁" not in system_prompt and "gardener" not in system_prompt.lower())
         )
         is_gardener = (
             "花匠" in system_prompt
             or "园丁" in system_prompt
             or "汤姆" in system_prompt
+            or "gardener" in system_prompt.lower()
+            or "tom" in system_prompt.lower()
         ) and not is_butler
 
+        # -----------------------------------------------------------------
+        # 英文语言分支 (English Branch)
+        # -----------------------------------------------------------------
+        if is_english:
+            if is_butler:
+                if any(w in last_user_msg.lower() for w in ["watch", "pocket watch"]):
+                    return (
+                        "Detective, that gold pocket watch was the Earl's cherished heirloom! "
+                        "When I inspected the hallway last night, I distinctly saw the gardener leaving the study with his hand clutching his pocket. "
+                        "Search the gardener's quarters, and the truth will surely come to light!"
+                    )
+                if turn_count == 0:
+                    return (
+                        "Reporting, Detective. I was attending to the silverware and locking the doors in the front hall all evening. "
+                        "Around 11:30 PM, from the corridor corner, I saw the gardener sneaking past the guards toward the Earl's study! "
+                        "With such heavy storm, why wasn't he tending orchids in the greenhouse? Why was he creeping near the Earl's chambers?"
+                    )
+                elif turn_count == 1:
+                    return (
+                        "Sir! I have served the Earl loyally for forty years; the manor is my home! How could I harm my master? "
+                        "The gardener is simply deflecting blame out of desperation. "
+                        "He owes tremendous gambling debts to loan sharks—everyone in the manor knows he is desperately short of money!"
+                    )
+                elif turn_count == 2:
+                    return (
+                        "Detective, I bear no motive whatsoever. The Earl provided generously for me in his will! "
+                        "The gardener, on the other hand, had both theft motive and opportunity. "
+                        "As for the locked door, he likely climbed in from the balcony. Do not let his lies deceive you, sir!"
+                    )
+                else:
+                    return (
+                        "Detective, the facts are clear. I am an old man with no family; I would never commit such atrocity. "
+                        "The culprit is greedy and reckless. Please bring justice for the late Earl!"
+                    )
+
+            if is_gardener:
+                if any(w in last_user_msg.lower() for w in ["watch", "pocket watch", "gold"]):
+                    return (
+                        "I... I... (The gardener turns pale and breaks into cold sweat) "
+                        "Fine! I confess! I did sneak into the study and took the gold watch because of my debts! "
+                        "But I swear on my life I didn't murder him! The Earl was already lying in a pool of blood when I stepped in!"
+                    )
+                if turn_count == 0:
+                    return (
+                        "Nonsense! Shut your lying mouth, Richard! "
+                        "Detective, don't believe this old fox! The storm shattered the greenhouse roof, and I was busy securing the rare orchids. "
+                        "He's the one wandering the halls late at night holding master keys—who knows what evil he was plotting!"
+                    )
+                elif turn_count == 1:
+                    return (
+                        "Detective, you need solid evidence! I stepped into the main hall only to shelter from the rain, but I never touched the Earl! "
+                        "The Earl berated Richard publicly last week and was about to fire him for embezzlement! Richard is the one holding a grudge!"
+                    )
+                elif turn_count == 2:
+                    return (
+                        "Detective, I swear I am innocent of murder! "
+                        "The study door was locked—only the butler carries the master keys for every room in this house! How could anyone else get inside?!"
+                    )
+                else:
+                    return (
+                        "Detective, I'm guilty of theft and ready to go to prison for stealing! "
+                        "But the Earl was struck down by a heavy brass object, and I only carry pruning shears! "
+                        "The butler has been scapegoating me from the beginning to silence me! Please see the truth!"
+                    )
+
+            return f"Regarding your question, Detective: as a key witness, I assure you every word I speak is the absolute truth."
+
+        # -----------------------------------------------------------------
+        # 中文语言分支 (Chinese Branch)
+        # -----------------------------------------------------------------
         # 1. 老管家角色剧本分支
         if is_butler:
             if "怀表" in last_user_msg:

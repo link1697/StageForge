@@ -535,12 +535,16 @@ textarea#player-input {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 10px 14px;
-  color: #fff;
+  color: var(--text-primary);
   font-family: inherit;
   font-size: 14px;
   resize: none;
   outline: none;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+textarea#player-input::placeholder {
+  color: var(--text-muted);
 }
 
 textarea#player-input:focus {
@@ -1189,3 +1193,184 @@ textarea#player-input:focus {
     padding: 10px 16px;
   }
 }
+
+/* ============================================================
+   Settings Modal & Language Selection Styles
+   ============================================================ */
+.settings-card {
+  max-width: 520px;
+  width: 90%;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 18px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  transition: border-color 0.2s ease;
+}
+
+.setting-item:hover {
+  border-color: rgba(226, 177, 105, 0.35);
+}
+
+.setting-info strong {
+  display: block;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.setting-info p {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.setting-control {
+  flex-shrink: 0;
+}
+
+.form-select {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-select:focus,
+.form-select:hover {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 10px rgba(226, 177, 105, 0.25);
+}
+
+/* ============================================================
+   Light Theme (明亮模式) Support
+   ============================================================ */
+body[data-theme="light"] {
+  --bg-primary: #f4f6fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #ebedf2;
+  --bg-card: #ffffff;
+  --border-color: rgba(0, 0, 0, 0.12);
+  --border-glow: rgba(184, 134, 11, 0.35);
+
+  --accent-gold: #b8860b;
+  --accent-gold-hover: #996515;
+
+  --text-primary: #1a1e29;
+  --text-secondary: #4a5568;
+  --text-muted: #6b7280;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 20px rgba(184, 134, 11, 0.15);
+  background-image: 
+    radial-gradient(ellipse at 20% 0%, rgba(184, 134, 11, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(74, 144, 226, 0.06) 0%, transparent 50%);
+}
+
+body[data-theme="light"] .game-title {
+  color: #1a1e29;
+}
+
+body[data-theme="light"] .chat-input-bar {
+  background: rgba(235, 237, 242, 0.85);
+}
+
+body[data-theme="light"] textarea#player-input {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.16);
+  color: #1a1e29;
+}
+
+body[data-theme="light"] textarea#player-input::placeholder {
+  color: #94a3b8;
+}
+
+body[data-theme="light"] .bubble-agent .bubble-body {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1a1e29;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+body[data-theme="light"] .bubble-player .bubble-body {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border: 1px solid rgba(37, 99, 235, 0.4);
+  color: #ffffff;
+}
+
+body[data-theme="light"] .bubble-meta {
+  color: #64748b;
+}
+
+body[data-theme="light"] .form-select {
+  background: #ffffff;
+  color: #1a1e29;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+body[data-theme="light"] .setting-item {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+body[data-theme="light"] .panel {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+body[data-theme="light"] .header-pill-btn {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+body[data-theme="light"] .round-status-box {
+  background: #f1f5f9;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+body[data-theme="light"] .round-value {
+  color: #b8860b;
+}
+
+body[data-theme="light"] .rules-card {
+  background: #f8fafc;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #b8860b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+body[data-theme="light"] .rules-card h4 {
+  color: #92400e;
+}
+
+body[data-theme="light"] .rules-card ul {
+  color: #334155;
+}
+
+body[data-theme="light"] .rules-card strong {
+  color: #0f172a;
+}
+
+
+

@@ -34,6 +34,12 @@ class GameConfig(BaseModel):
         default_factory=list,
         description="物证线索数据库（如金怀表、万能钥匙、毒药瓶），根据提问动态唤醒记忆",
     )
+    default_language: Optional[str] = Field(
+        default="zh",
+        description="剧本默认原始语言 (如 'zh' 或 'en')",
+    )
+    lang: str = Field(default="zh", description="游戏当前运行时语言 (zh 或 en)")
+
 
     @model_validator(mode="after")
     def validate_turn_order_and_agents(self) -> "GameConfig":
