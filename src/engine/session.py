@@ -86,7 +86,9 @@ class GameSession:
 
         return {
             "name": self.config.name,
+            "case_name": self.config.case_name or self.config.name,
             "description": self.config.description,
+            "case_brief": self.config.case_brief or self.config.description,
             "current_round": min(self.scheduler.current_round, self.config.max_rounds),
             "max_rounds": self.config.max_rounds,
             "min_accuse_round": self.config.min_accuse_round,
@@ -100,7 +102,13 @@ class GameSession:
             "culprit_revealed": self.config.culprit_id if self.result else None,
             "truth_revealed": self.config.truth_revealed if self.result else None,
             "agents": [
-                {"id": a.id, "name": a.name, "role": a.role}
+                {
+                    "id": a.id,
+                    "name": a.name,
+                    "role": a.role,
+                    "avatar": a.avatar or "👤",
+                    "description": a.description or "",
+                }
                 for a in self.config.agents
             ],
             "turn_order": self.config.turn_order,

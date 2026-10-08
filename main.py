@@ -63,10 +63,13 @@ def main():
 
     # 如果指定了 --web，启动 FastAPI Web 交互服务
     if args.web:
+        import os
         import uvicorn
+        os.environ["GAME_CONFIG"] = str(args.config)
         from src.api.server import app
         print(f"\n=======================================================")
         print(f" 🌐 正在启动游戏交互前端界面...")
+        print(f" 📜 加载剧本配置: {args.config}")
         print(f" 🔗 请用浏览器打开: http://{args.host}:{args.port}")
         print(f"=======================================================\n")
         uvicorn.run(app, host=args.host, port=args.port)

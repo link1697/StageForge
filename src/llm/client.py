@@ -68,27 +68,36 @@ class LLMClient:
         else:
             self.client = None
 
+        # 备选降级模型列表（按轻量与独立配额优先级排序）
+        self.fallback_models = [
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-8b",
+        ]
+        # 如果当前模型已经在备选列表中，排除它
+        self.fallback_models = [m for m in self.fallback_models if m != self.model_name]
+
     def generate_response(
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
     ) -> str:
-        """执行大模型对话请求，包含异常重试与超时保护"""
+        """执行大模型对话请求，包含限额自动降级（换模型 -> 自动 Mock）"""
         if self.mock_mode:
             return self._generate_mock_response(messages)
 
         if not self.client:
-            raise LLMClientError(
-                "未检测到 OPENAI_API_KEY 环境变量！\n"
-                "请在 .env 文件或环境中配置 OPENAI_API_KEY（以及可选的 OPENAI_BASE_URL），\n"
-                "或启动时开启模拟模式 (--mock) 进行体验。"
-            )
+            # 无 Client 时自动降级为 Mock
+            return self._generate_mock_response(messages)
 
-        last_exception = None
-        for attempt in range(1, self.max_retries + 2):
+        # 尝试当前主模型及降级备用模型
+        models_to_try = [self.model_name] + self.fallback_models
+
+        for candidate_model in models_to_try:
             try:
                 response = self.client.chat.completions.create(
-                    model=self.model_name,
+                    model=candidate_model,
                     messages=messages,  # type: ignore
                     temperature=temperature,
                 )
@@ -96,24 +105,19 @@ class LLMClient:
                     return response.choices[0].message.content.strip()
                 return "（无内容返回）"
             except RateLimitError as e:
-                # 429 配额用尽，直接快速报错，绝不隐式休眠几万秒卡住终端
-                raise LLMClientError(
-                    f"大模型 API 调用配额超限 (HTTP 429 Quota Exceeded)！\n"
-                    f"服务端返回: {e.message or e}\n"
-                    f"建议: 免费额度已耗尽，请更换 Key 或使用本地模拟模式 (--mock)。"
-                ) from e
+                # 429 限额超限：记录警告，尝试下一个备选模型
+                print(f"[LLM 自动降级] 模型 {candidate_model} 触发 429 限额 ({e})，正在尝试备用模型...")
+                continue
             except (APITimeoutError, APIConnectionError, APIError) as e:
-                last_exception = e
-                if attempt <= self.max_retries:
-                    time.sleep(1.0 * attempt)
-                else:
-                    break
+                print(f"[LLM 连接波动] 模型 {candidate_model} 出现网络异常 ({e})，尝试备选方案...")
+                continue
             except Exception as e:
-                raise LLMClientError(f"LLM 调用发生未知错误: {e}") from e
+                print(f"[LLM 未知异常] {candidate_model} 失败: {e}")
+                continue
 
-        raise LLMClientError(
-            f"LLM 请求在重试 {self.max_retries} 次后失败: {last_exception}"
-        )
+        # 如果所有在线大模型均被限额或不可用，自动降级为智能本地推理 Mock 模式，确保游戏绝不崩溃
+        print("[LLM 保底降级] 所有在线 API 配额均已耗尽，已自动无缝切换为内置剧情推演引擎 (Mock Mode)！")
+        return self._generate_mock_response(messages)
 
     def _generate_mock_response(self, messages: List[Dict[str, str]]) -> str:
         """本地智能 Mock 模式响应生成器：根据角色人设、轮次与侦探提问动态生成心理博弈台词"""

@@ -679,8 +679,11 @@ textarea#player-input:focus {
 
 .accuse-suspects-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
   gap: 12px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .accuse-target-btn {
@@ -886,17 +889,26 @@ textarea#player-input:focus {
   flex-shrink: 0;
 }
 
-.guide-rules-list strong {
+.guide-rule-title {
   display: block;
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 700;
   color: #fff;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .guide-rules-list p {
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 12.5px;
+  line-height: 1.6;
   color: var(--text-secondary);
+}
+
+.guide-rules-list p strong {
+  display: inline !important;
+  font-size: inherit;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin: 0 4px;
 }
 
 .btn-large {

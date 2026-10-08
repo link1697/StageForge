@@ -1,5 +1,7 @@
 name: "庄园疑案：审讯室"
+case_name: "黑石庄园伯爵命案"
 description: "老伯爵在书房被杀，怀表丢失。你在暴风雨夜将嫌疑最大的管家与园丁集中审讯。"
+case_brief: "老伯爵在紧锁的书房内被残忍杀害，怀表不翼而飞。暴风雨之夜你已封锁庄园大门，并将嫌疑最大的管家与园丁隔离至审讯室。"
 max_rounds: 7
 min_accuse_round: 4
 culprit_id: "agent_butler"
@@ -18,6 +20,8 @@ agents:
   - id: "agent_butler"
     name: "理查德"
     role: "庄园总管（嫌疑人）"
+    avatar: "🧐"
+    description: "服务庄园40年，滴水不漏，声称案发时在佣人房且绝无钥匙。"
     temperature: 0.5
     system_prompt: >
       你是服务庄园40年的老管家，但实际上你才是杀害伯爵的真正凶手！
@@ -31,6 +35,8 @@ agents:
   - id: "agent_gardener"
     name: "汤姆"
     role: "庄园花匠（嫌疑人）"
+    avatar: "🧑‍🌾"
+    description: "脾气暴躁欠有赌债，声称昨夜只是路过，反咬管家怀恨在心。"
     temperature: 0.7
     system_prompt: >
       你是庄园花匠汤姆，来到庄园工作了整整3年。你欠了赌债，昨晚确实溜进书房偷了伯爵的金怀表，但你进去时伯爵已经倒在血泊中，你绝对没有杀人！

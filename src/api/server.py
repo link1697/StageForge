@@ -24,7 +24,7 @@ app.add_middleware(
 
 # 当前全局游戏会话（支持单机对局；若无则自动在首次启动时创建）
 current_session: Optional[GameSession] = None
-default_config_path = Path("configs/detective_mystery.yaml")
+default_config_path = Path(os.environ.get("GAME_CONFIG", "configs/detective_mystery.yaml"))
 
 # 挂载静态文件目录
 STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
@@ -32,7 +32,7 @@ STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class StartGameRequest(BaseModel):
-    config_path: Optional[str] = "configs/detective_mystery.yaml"
+    config_path: Optional[str] = None
     mock_mode: bool = False
     model_name: Optional[str] = None
 
@@ -56,7 +56,7 @@ async def serve_index():
 @app.post("/api/game/start")
 async def start_game(req: StartGameRequest):
     global current_session
-    cfg_path = Path(req.config_path or default_config_path)
+    cfg_path = Path(req.config_path) if req.config_path else default_config_path
     if not cfg_path.exists():
         raise HTTPException(status_code=400, detail=f"配置文件不存在: {cfg_path}")
 

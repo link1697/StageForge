@@ -37,6 +37,8 @@ const resultRestartBtn = document.getElementById("result-restart-btn");
 // Avatars mapping
 function getAvatar(id) {
   if (id === "player") return "🕵️‍♂️";
+  const agent = state.agents.find((a) => a.id === id);
+  if (agent && agent.avatar) return agent.avatar;
   if (id === "agent_butler") return "🧐";
   if (id === "agent_gardener") return "🧑‍🌾";
   return "👤";
@@ -96,17 +98,86 @@ function renderFullState(gameState) {
   state.agents = gameState.agents;
   state.status = gameState.status;
 
-  // 1. 进度指示
+  // 1. 标题与案情通报 (动态根据 YAML 渲染)
+  const caseTitle = gameState.case_name || gameState.name;
+  const gameTitleEl = document.getElementById("game-title");
+  if (gameTitleEl && caseTitle) {
+    gameTitleEl.textContent = caseTitle;
+    document.title = `${caseTitle} · 探案推理引擎`;
+  }
+  const transcriptTitleEl = document.getElementById("chat-transcript-title");
+  if (transcriptTitleEl && caseTitle) {
+    transcriptTitleEl.textContent = `${caseTitle} · 审讯笔录`;
+  }
+  const guideModalTitleEl = document.getElementById("guide-modal-title");
+  if (guideModalTitleEl && caseTitle) {
+    guideModalTitleEl.textContent = `🕵️‍♂️ ${caseTitle} · 案情速报`;
+  }
+  const gameDescEl = document.getElementById("game-description");
+  if (gameDescEl) {
+    const briefText = gameState.case_brief || gameState.description;
+    if (briefText) {
+      gameDescEl.textContent = briefText;
+    }
+  }
+
+  // 2. 侧边栏规则卡片动态轮次
+  const ruleRounds = document.getElementById("sidebar-rule-rounds");
+  if (ruleRounds) {
+    ruleRounds.innerHTML = `最多进行 <strong>${gameState.max_rounds} 轮</strong> 对话审讯。`;
+  }
+  const ruleAccuse = document.getElementById("sidebar-rule-accuse");
+  if (ruleAccuse) {
+    ruleAccuse.innerHTML = `从 <strong>第 ${gameState.min_accuse_round} 轮</strong> 起即可随时开启「指认真凶」结案。`;
+  }
+  const ruleMandatory = document.getElementById("sidebar-rule-mandatory");
+  if (ruleMandatory) {
+    ruleMandatory.innerHTML = `到达第 ${gameState.max_rounds} 轮后必须立即强制指控，指认正确获胜，否则冤案失败！`;
+  }
+
+  // 3. 探案指引 Modal 动态数据渲染
+  const guideStoryDesc = document.getElementById("guide-story-desc");
+  if (guideStoryDesc && gameState.description) {
+    guideStoryDesc.innerHTML = `${escapeHTML(gameState.description)}<br>嫌疑人已被带至审讯室，正等待你的质询：`;
+  }
+  const guideRule1 = document.getElementById("guide-rule-1");
+  if (guideRule1) {
+    guideRule1.textContent = `在底部输入你想质问的问题，场上 ${state.agents.length} 位嫌疑人会依次回答并互相攻防辩驳。`;
+  }
+  const guideRule2 = document.getElementById("guide-rule-2");
+  if (guideRule2) {
+    guideRule2.innerHTML = `整场审讯共有 <strong>${gameState.max_rounds} 轮</strong> 对话机会。从 <strong>第 ${gameState.min_accuse_round} 轮起</strong>，你可以随时点击「⚖️ 指认真凶」结案；若到了第 ${gameState.max_rounds} 轮则必须进行最终指控！`;
+  }
+
+  const guidePreview = document.getElementById("guide-suspects-preview");
+  if (guidePreview) {
+    guidePreview.innerHTML = "";
+    state.agents.forEach((agent) => {
+      const item = document.createElement("div");
+      item.className = "preview-item";
+      const descText = agent.description || agent.role || "嫌疑人之一";
+      item.innerHTML = `
+        <span class="preview-avatar">${agent.avatar || getAvatar(agent.id)}</span>
+        <div>
+          <strong>${agent.name}（${agent.role}）</strong>
+          <p>${escapeHTML(descText)}</p>
+        </div>
+      `;
+      guidePreview.appendChild(item);
+    });
+  }
+
+  // 4. 进度指示
   roundDisplay.textContent = `第 ${state.currentRound} / ${state.maxRounds} 轮`;
 
-  // 2. 嫌疑人列表
+  // 5. 嫌疑人列表
   suspectsCount.textContent = `${state.agents.length} 位嫌疑人`;
   suspectsList.innerHTML = "";
   state.agents.forEach((agent) => {
     const card = document.createElement("div");
     card.className = "suspect-card";
     card.innerHTML = `
-      <div class="suspect-avatar">${getAvatar(agent.id)}</div>
+      <div class="suspect-avatar">${agent.avatar || getAvatar(agent.id)}</div>
       <div class="suspect-info">
         <div class="suspect-name">${agent.name}</div>
         <div class="suspect-role">${agent.role}</div>
@@ -115,7 +186,7 @@ function renderFullState(gameState) {
     suspectsList.appendChild(card);
   });
 
-  // 3. 对话笔录消息流
+  // 6. 对话笔录消息流
   chatMessages.innerHTML = "";
   let lastRound = 0;
   if (gameState.messages && gameState.messages.length > 0) {
@@ -128,25 +199,26 @@ function renderFullState(gameState) {
     });
   } else {
     // 渲染欢迎/开场指引
+    const names = state.agents.map((a) => a.name).join("、");
     const welcomeBubble = document.createElement("div");
     welcomeBubble.className = "thinking-bubble";
     welcomeBubble.innerHTML = `
-      <span>🏛️ 伯爵书房大门已封锁。管家与园丁已带到审讯室内，请侦探开始第一轮质问。</span>
+      <span>🏛️ 审讯室大门已封闭。${names ? names + " 等嫌疑人" : "所有嫌疑人"}均已入席，请侦探开始第一轮质问。</span>
     `;
     chatMessages.appendChild(welcomeBubble);
   }
   scrollChatToBottom();
 
-  // 4. 指认真凶按钮控制
+  // 7. 指认真凶按钮控制
   updateAccuseButton();
 
-  // 5. 检查是否结算
+  // 8. 检查是否结算
   if (gameState.status === "victory" || gameState.status === "defeat") {
     showResultModal(
       gameState.status,
       gameState.truth_revealed || "案情已揭晓",
       gameState.chosen_name || "",
-      gameState.real_culprit_name || "老管家"
+      gameState.real_culprit_name || "真凶"
     );
   } else if (gameState.status === "mandatory_accuse") {
     openAccuseModal(true);
@@ -347,10 +419,10 @@ function showResultModal(result, truthText, chosenName = "", realCulpritName = "
   resultBanner.className = `result-banner ${result}`;
   if (result === "victory") {
     resultTitle.textContent = "🎉 真相大白！探案胜利！";
-    resultSubtitle.textContent = `你成功识破伪装，指认了真凶【${chosenName || "老管家"}】！`;
+    resultSubtitle.textContent = `你成功识破伪装，指认了真凶【${chosenName || "真凶"}】！`;
   } else {
     resultTitle.textContent = "❌ 冤假错案！推理失败！";
-    resultSubtitle.textContent = `你指认了【${chosenName}】，但真凶其实是【${realCulpritName || "老管家"}】！`;
+    resultSubtitle.textContent = `你指认了【${chosenName || "无辜者"}】，但真凶其实是【${realCulpritName || "真凶"}】！`;
   }
 
   truthContent.textContent = truthText;
@@ -426,8 +498,18 @@ if (closeGuideBtn) closeGuideBtn.addEventListener("click", closeGuideModal);
 if (startInvestigationBtn) startInvestigationBtn.addEventListener("click", closeGuideModal);
 
 // 页面加载自动开启游戏，并向新玩家展示背景指引
-window.addEventListener("DOMContentLoaded", () => {
-  initGame();
+window.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const res = await fetchWithRetry("/api/game/state");
+    const data = await res.json();
+    if (data.active && data.state) {
+      renderFullState(data.state);
+    } else {
+      await initGame();
+    }
+  } catch (err) {
+    await initGame();
+  }
   // 首次打开页面时自动弹出背景与玩法指南
   openGuideModal();
 });

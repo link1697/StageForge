@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=2">
 </head>
 <body>
   <div class="app-container">
@@ -70,9 +70,9 @@
             <div class="rules-card">
               <h4>⚖️ 审讯与结案规则</h4>
               <ul>
-                <li>最多进行 <strong>7 轮</strong> 对话审讯。</li>
-                <li>从 <strong>第 4 轮</strong> 起即可随时开启「指认真凶」结案。</li>
-                <li>到达第 7 轮后必须立即强制指控，指认正确获胜，否则冤案失败！</li>
+                <li id="sidebar-rule-rounds">最多进行 <strong>7 轮</strong> 对话审讯。</li>
+                <li id="sidebar-rule-accuse">从 <strong>第 4 轮</strong> 起即可随时开启「指认真凶」结案。</li>
+                <li id="sidebar-rule-mandatory">到达最终轮后必须立即强制指控，指认正确获胜，否则冤案失败！</li>
               </ul>
             </div>
           </div>
@@ -95,7 +95,7 @@
           <div class="panel-header chat-header">
             <div class="chat-header-title">
               <span class="live-dot"></span>
-              <h3>庄园审讯笔录 (Transcript)</h3>
+              <h3 id="chat-transcript-title">庄园审讯笔录 (Transcript)</h3>
             </div>
             <div id="speaker-indicator" class="speaker-indicator">
               等待侦探发言...
@@ -176,31 +176,17 @@
     <div id="guide-modal" class="modal-overlay hidden">
       <div class="modal-card guide-card">
         <div class="modal-header">
-          <h2>🕵️‍♂️ 侦探入场指南 · 案情速报</h2>
+          <h2 id="guide-modal-title">🕵️‍♂️ 侦探入场指南 · 案情速报</h2>
           <button id="close-guide-btn" class="close-btn">&times;</button>
         </div>
         <div class="modal-body guide-body">
           <div class="guide-section story-intro">
             <h4>🌧️ 案情背景</h4>
-            <p>
-              暴风雨之夜，<strong>老伯爵在紧锁的书房内被残忍杀害</strong>，随身携带的金怀表不翼而飞。<br>
-              作为受邀而来的名侦探，你已封锁庄园大门，并将嫌疑最大的两人隔离至审讯室：
+            <p id="guide-story-desc">
+              正在加载案情档案...
             </p>
-            <div class="guide-suspects-preview">
-              <div class="preview-item">
-                <span class="preview-avatar">🧐</span>
-                <div>
-                  <strong>理查德（老管家）</strong>
-                  <p>服务庄园40年，滴水不漏，声称案发时在佣人房且绝无钥匙。</p>
-                </div>
-              </div>
-              <div class="preview-item">
-                <span class="preview-avatar">🧑‍🌾</span>
-                <div>
-                  <strong>汤姆（年轻园丁）</strong>
-                  <p>脾气暴躁欠有赌债，声称昨夜只是路过，反咬管家怀恨在心。</p>
-                </div>
-              </div>
+            <div class="guide-suspects-preview" id="guide-suspects-preview">
+              <!-- 动态根据剧本嫌疑人渲染 -->
             </div>
           </div>
 
@@ -210,21 +196,21 @@
               <li>
                 <span class="step-num">1</span>
                 <div>
-                  <strong>提问质询（回合制推进）</strong>
-                  <p>在底部输入你想质问的问题（如“<em>昨晚10点你在哪？</em>”、“<em>谁有书房钥匙？</em>”），两名嫌疑人会依次回答并互相攻防辩驳。</p>
+                  <strong class="guide-rule-title">提问质询（回合制推进）</strong>
+                  <p id="guide-rule-1">在底部输入你想质问的问题，所有嫌疑人会依次回答并互相攻防辩驳。</p>
                 </div>
               </li>
               <li>
                 <span class="step-num">2</span>
                 <div>
-                  <strong>审讯轮次与指认真凶</strong>
-                  <p>整场审讯共有 <strong>7 轮</strong> 对话机会。从 <strong>第 4 轮起</strong>，你可以随时点击「⚖️ 指认真凶」结案；若到了第 7 轮则必须进行最终指控！</p>
+                  <strong class="guide-rule-title">审讯轮次与指认真凶</strong>
+                  <p id="guide-rule-2">整场审讯共有 <strong>7 轮</strong> 对话机会。从 <strong>第 4 轮起</strong>，你可以随时点击「⚖️ 指认真凶」结案；若到了最后一轮则必须进行最终指控！</p>
                 </div>
               </li>
               <li>
                 <span class="step-num">3</span>
                 <div>
-                  <strong>明察秋毫，识破真凶</strong>
+                  <strong class="guide-rule-title">明察秋毫，识破真凶</strong>
                   <p>嫌疑人的言语中可能藏有谎言、隐瞒与互相栽赃。找出破绽，指出真正的杀人凶手即可获得胜利！</p>
                 </div>
               </li>
@@ -244,6 +230,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>

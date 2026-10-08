@@ -6,13 +6,17 @@ class AgentConfig(BaseModel):
     id: str = Field(..., description="智能体唯一标识符，需与 turn_order 中的字符串匹配")
     name: str = Field(..., description="角色展示名称")
     role: str = Field(..., description="角色在游戏中的身份标签")
+    avatar: Optional[str] = Field(default="👤", description="角色头像 Emoji 或图标")
+    description: Optional[str] = Field(default="", description="角色背景简介与特征，用于侦探速报指引")
     system_prompt: str = Field(..., description="角色核心人设、已知秘密与行为指引")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="生成随机度")
 
 
 class GameConfig(BaseModel):
-    name: str = Field(..., description="游戏/剧本名称")
+    name: str = Field(..., description="游戏/剧本名称（案情名称）")
+    case_name: Optional[str] = Field(None, description="案情别名/专属名称（若未填写则使用 name）")
     description: str = Field(..., description="游戏背景简介")
+    case_brief: Optional[str] = Field(None, description="案情通报正文（显示在左侧档案通报栏，若未填写则使用 description）")
     max_rounds: int = Field(default=5, ge=1, description="最大对局轮数")
     turn_order: List[str] = Field(
         ...,
