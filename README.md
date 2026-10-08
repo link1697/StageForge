@@ -1,6 +1,6 @@
-# Agentic Game Runtime Engine (多智能体文字游戏运行时引擎)
+# StageForge (多智能体文字游戏推演引擎)
 
-轻量级、配置驱动的非对称多智能体文字游戏调度引擎，作为创作者剧本与底层 LLM 通信之间的中介层。
+轻量级、配置驱动的非对称多智能体（Multi-Agent）推演与互动引擎，集成 Hybrid RAG 与 SGLang 推理加速。
 
 ---
 

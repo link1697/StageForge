@@ -6,3 +6,5 @@ __pycache__/
 .pytest_cache/
 .env
 .DS_Store
+resume.md
+tech_design.md

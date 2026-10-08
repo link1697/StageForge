@@ -146,16 +146,38 @@ class LLMClient:
         # 计算当前角色已经发言的次数（即当前轮次索引，0 为第 1 轮）
         turn_count = len([m for m in messages if m.get("role") == "assistant"])
 
-        # 获取侦探/其他角色的最近发言
+        # 获取侦探/玩家的原始提问（避免将管家的上一句发言当成侦探的问话）
         last_user_msg = ""
         for m in reversed(messages):
             if m.get("role") == "user":
-                last_user_msg = m.get("content", "")
-                break
+                content = m.get("content", "")
+                # 如果是其他角色的发言（如 [理查德]: ...），继续向前查找真正 [侦探] 或 [你 (侦探)] 的提问
+                if content.startswith("[") and "]:" in content:
+                    speaker_tag = content.split("]:")[0]
+                    if "侦探" in speaker_tag or "你" in speaker_tag:
+                        last_user_msg = content.split("]:", 1)[1].strip()
+                        break
+                else:
+                    last_user_msg = content
+                    break
 
-        # 角色判断（根据 system_prompt 中定义的第一人称角色，避免正文提及对方导致误判）
-        is_butler = "老管家" in system_prompt and "你是年轻园丁" not in system_prompt
-        is_gardener = "年轻园丁" in system_prompt or ("园丁" in system_prompt and not is_butler)
+        # 如果没抓到纯玩家问话，保底使用最近的 user 消息
+        if not last_user_msg:
+            for m in reversed(messages):
+                if m.get("role") == "user":
+                    last_user_msg = m.get("content", "")
+                    break
+
+        # 角色判断（根据 system_prompt 中定义的第一人称人设，严格区分管家与园丁/花匠）
+        is_butler = (
+            ("老管家" in system_prompt or "理查德" in system_prompt)
+            and ("你是庄园花匠" not in system_prompt and "你是年轻园丁" not in system_prompt)
+        )
+        is_gardener = (
+            "花匠" in system_prompt
+            or "园丁" in system_prompt
+            or "汤姆" in system_prompt
+        ) and not is_butler
 
         # 1. 老管家角色剧本分支
         if is_butler:
